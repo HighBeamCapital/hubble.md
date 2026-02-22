@@ -58,7 +58,10 @@ export const MarkdownRolloverExtension = Extension.create({
 									}
 								: prev;
 
-						return deriveBoundaryState(newState, mappedPrev);
+						return deriveBoundaryState(newState, mappedPrev, {
+							oldState: _oldState,
+							transaction: tr,
+						});
 					},
 				},
 				props: {
@@ -219,6 +222,55 @@ function getBoundaryTransition(
 	};
 }
 
+function inferSideFromCursorMotion(
+	oldState: EditorState,
+	newState: EditorState,
+	transaction: Transaction,
+	boundaryMatch: BoundaryMatch,
+): CursorSide | null {
+	if (!transaction.selectionSet) return null;
+	if (!oldState.selection.empty || !newState.selection.empty) return null;
+
+	const oldPos = oldState.selection.from;
+	const newPos = newState.selection.from;
+	if (oldPos === newPos) return null;
+
+	const boundaryPos = newPos;
+	if (boundaryPos !== newState.selection.from) return null;
+
+	const rangeAtOldPos = findMarkRangeAtPos(
+		oldState,
+		oldPos,
+		boundaryMatch.markType,
+	);
+	if (!rangeAtOldPos) return null;
+
+	const movedLeft = oldPos > newPos;
+	const movedRight = oldPos < newPos;
+
+	if (
+		boundaryMatch.boundary === 'start' &&
+		movedLeft &&
+		newPos === rangeAtOldPos.from &&
+		oldPos > rangeAtOldPos.from &&
+		oldPos <= rangeAtOldPos.to
+	) {
+		return 'inside';
+	}
+
+	if (
+		boundaryMatch.boundary === 'end' &&
+		movedRight &&
+		newPos === rangeAtOldPos.to &&
+		oldPos < rangeAtOldPos.to &&
+		oldPos >= rangeAtOldPos.from
+	) {
+		return 'inside';
+	}
+
+	return null;
+}
+
 function getNextSideForArrow({
 	boundary,
 	currentSide,
@@ -242,6 +294,10 @@ function getNextSideForArrow({
 function deriveBoundaryState(
 	state: EditorState,
 	prev: RolloverBoundaryState,
+	context?: {
+		oldState: EditorState;
+		transaction: Transaction;
+	},
 ): RolloverBoundaryState {
 	const { selection } = state;
 	if (!selection.empty) return null;
@@ -258,13 +314,24 @@ function deriveBoundaryState(
 		return prev;
 	}
 
+	const inferredSide = context
+		? inferSideFromCursorMotion(
+				context.oldState,
+				state,
+				context.transaction,
+				boundaryMatch,
+			)
+		: null;
+
 	return {
 		boundaryPos: selection.from,
 		markName: boundaryMatch.markType.name,
 		boundary: boundaryMatch.boundary,
-		side: isMarkActiveForInsertion(state, boundaryMatch.markType)
-			? 'inside'
-			: 'outside',
+		side:
+			inferredSide ??
+			(isMarkActiveForInsertion(state, boundaryMatch.markType)
+				? 'inside'
+				: 'outside'),
 	};
 }
 
