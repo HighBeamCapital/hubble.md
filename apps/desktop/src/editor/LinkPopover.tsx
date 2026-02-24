@@ -3,6 +3,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Editor } from "@tiptap/core";
 import { keymatch } from "keymatch";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import MingcuteArrowRightFill from "~icons/mingcute/arrow-right-fill";
 import { FOCUS_LINK_POPOVER_EVENT } from "./SmartLinkExtension";
 
 export function LinkPopover({
@@ -183,11 +184,12 @@ export function LinkPopover({
 				</div>
 				<button
 					type="button"
+					aria-label="Visit link"
 					onClick={() => {
 						void visitLink(activeLink.href);
 					}}
 				>
-					↗
+					<MingcuteArrowRightFill />
 				</button>
 			</div>
 		</div>
