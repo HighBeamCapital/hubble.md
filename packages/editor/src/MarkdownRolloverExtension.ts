@@ -19,8 +19,14 @@ export type RolloverBoundaryState = {
 	side: CursorSide;
 } | null;
 
-const MARK_PRIORITY = ["code", "bold", "italic", "strike", "link"] as const;
-const DELIMITER_BY_MARK: Record<
+export const MARK_PRIORITY = [
+	"code",
+	"bold",
+	"italic",
+	"strike",
+	"link",
+] as const;
+export const DELIMITER_BY_MARK: Record<
 	string,
 	{ start: string; end: string } | undefined
 > = {

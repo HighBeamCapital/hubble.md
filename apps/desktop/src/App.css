@@ -118,18 +118,6 @@
 	border-radius: 2px;
 }
 
-.pm-stored-mark-bold {
-	font-weight: 700;
-}
-
-.pm-stored-mark-italic {
-	font-style: italic;
-}
-
-.pm-stored-mark-strike {
-	text-decoration: line-through;
-}
-
 .pm-md-delimiter {
 	color: #6b7280;
 	opacity: 0.7;
