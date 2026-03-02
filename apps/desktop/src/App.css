@@ -135,6 +135,12 @@
 	text-decoration: underline;
 }
 
+.ProseMirror img {
+	display: block;
+	max-inline-size: min(100%, 900px);
+	block-size: auto;
+}
+
 .link-popover {
 	position: absolute;
 	inline-size: 300px;

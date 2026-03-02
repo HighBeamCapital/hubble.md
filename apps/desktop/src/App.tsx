@@ -10,14 +10,14 @@ import { useStoreValue } from "@simplestack/store/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import Image from "@tiptap/extension-image";
 import { TaskItem } from "@tiptap/extension-list";
 import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { toast } from "sonner";
 import { createAppMenu } from "./appMenu";
+import { createImageExtension } from "./editor/ImageExtension";
+import { handleImagePaste } from "./editor/handleImagePaste";
 import { LinkPopover } from "./editor/LinkPopover";
 import { SmartLinkExtension } from "./editor/SmartLinkExtension";
 import { VirtualCursor } from "./editor/VirtualCursor";
@@ -138,10 +138,7 @@ function App() {
 	);
 }
 const SAVE_DEBOUNCE_MS = 120;
-type PersistPastedImageResponse = {
-	relativeMarkdownPath: string;
-	deduped: boolean;
-};
+const DEBUG_IMAGE_SERIALIZE = true;
 
 function MarkdownEditor({
 	path,
@@ -166,7 +163,7 @@ function MarkdownEditor({
 			LinkExtension,
 			SmartLinkExtension,
 			MarkdownRolloverExtension,
-			Image,
+			createImageExtension(path),
 			...listExtensions,
 			TaskItem.configure({
 				nested: true,
@@ -178,6 +175,18 @@ function MarkdownEditor({
 			const markdown = tiptapDocToMarkdown(
 				currentEditor.getJSON() as JSONContent,
 			);
+			if (DEBUG_IMAGE_SERIALIZE) {
+				const imageNodes = (currentEditor.getJSON() as JSONContent).content?.filter(
+					(node) => node.type === "image",
+				);
+				console.info("[imageSerialize] onUpdate", {
+					path,
+					imageNodeCount: imageNodes?.length ?? 0,
+					imageNodeSrcs:
+						imageNodes?.map((node) => String(node.attrs?.src ?? "")) ?? [],
+					markdownSnippet: markdown.slice(0, 240),
+				});
+			}
 			latestMarkdownRef.current = markdown;
 
 			if (saveTimerRef.current !== null) {
@@ -191,48 +200,13 @@ function MarkdownEditor({
 			attributes: {
 				class: "editorInput",
 			},
-			handlePaste: (view, event) => {
-				const clipboardData = event.clipboardData;
-				if (!clipboardData) return false;
-				const imageItem = Array.from(clipboardData.items).find((item) =>
-					item.type.startsWith("image/"),
+			handlePaste: (_view, event) => {
+				const items = event.clipboardData?.items;
+				const hasImage = Boolean(
+					items && Array.from(items).some((item) => item.type.startsWith("image/")),
 				);
-				const imageFile = imageItem?.getAsFile();
-				if (!imageFile) return false;
-
-				event.preventDefault();
-				void (async () => {
-					try {
-						const bytes = Array.from(
-							new Uint8Array(await imageFile.arrayBuffer()),
-						);
-						const { relativeMarkdownPath } =
-							await invoke<PersistPastedImageResponse>(
-								"persist_pasted_image",
-								{
-									notePath: path,
-									bytes,
-									mimeType: imageFile.type || null,
-								},
-							);
-						const imageNodeType = view.state.schema.nodes.image;
-						if (!imageNodeType) {
-							throw new Error("Image node is not available in editor schema.");
-						}
-						view.dispatch(
-							view.state.tr.replaceSelectionWith(
-								imageNodeType.create({
-									src: relativeMarkdownPath,
-									alt: "",
-								}),
-							),
-						);
-					} catch (error) {
-						const message =
-							error instanceof Error ? error.message : String(error);
-						toast.error("Failed to paste image", { description: message });
-					}
-				})();
+				if (!hasImage) return false;
+				void handleImagePaste({ editor, notePath: path, event });
 				return true;
 			},
 		},
