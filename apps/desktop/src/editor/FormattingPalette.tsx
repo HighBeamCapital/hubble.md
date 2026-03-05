@@ -1,106 +1,124 @@
 import { getCaretFormattingState } from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
 import { useEffect, useState } from "react";
-import { cn } from "../lib/utils";
+import MingcuteBoldLine from "~icons/mingcute/bold-line";
+import MingcuteItalicLine from "~icons/mingcute/italic-line";
+import MingcuteLinkLine from "~icons/mingcute/link-line";
 
 type PaletteState = {
-	visible: boolean;
+	wordCount: number;
 	activeMarkNames: string[];
 	canEscapeBoundary: boolean;
+	showDashedDivider: boolean;
 };
 
-const MARK_DISPLAY = [
-	{ name: "bold", label: "B", className: "font-semibold" },
-	{ name: "italic", label: "I", className: "italic" },
-	{ name: "code", label: "`", className: "font-mono" },
-	{ name: "strike", label: "S", className: "line-through" },
-	{ name: "link", label: "🔗", className: "" },
-] as const;
-
-export function FormattingPalette({ editor }: { editor: Editor | null }) {
+export function FormattingPalette({
+	editor,
+	scrollContainer,
+}: {
+	editor: Editor | null;
+	scrollContainer: HTMLDivElement | null;
+}) {
 	const [paletteState, setPaletteState] = useState<PaletteState>({
-		visible: false,
+		wordCount: 0,
 		activeMarkNames: [],
 		canEscapeBoundary: false,
+		showDashedDivider: false,
 	});
 
 	useEffect(() => {
 		if (!editor) return;
+		const resolvedScrollContainer =
+			scrollContainer ??
+			(editor.view.dom.closest(".editorViewport") as HTMLDivElement | null) ??
+			null;
 
 		const update = () => {
+			const wordCount = countWords(editor.getText());
 			const { state } = editor;
+			const scrollContainer = resolvedScrollContainer;
+			const scrollHeight = scrollContainer?.scrollHeight ?? 0;
+			const clientHeight = scrollContainer?.clientHeight ?? 0;
+			const scrollTop = scrollContainer?.scrollTop ?? 0;
+			const maxScrollTop = Math.max(scrollHeight - clientHeight, 0);
+			const hasMeaningfulOverflow = maxScrollTop > 8;
+			const isAtBottom = maxScrollTop - scrollTop <= 2;
+			const showDashedDivider = hasMeaningfulOverflow && !isAtBottom;
 			if (!editor.isFocused || !state.selection.empty) {
 				setPaletteState({
-					visible: false,
+					wordCount,
 					activeMarkNames: [],
 					canEscapeBoundary: false,
+					showDashedDivider,
 				});
 				return;
 			}
 
 			const caretState = getCaretFormattingState(state);
 			setPaletteState({
-				visible: true,
+				wordCount,
 				activeMarkNames: caretState.activeMarkNames,
 				canEscapeBoundary: caretState.canEscapeBoundary,
+				showDashedDivider,
 			});
 		};
 
 		update();
+		requestAnimationFrame(update);
 		editor.on("selectionUpdate", update);
 		editor.on("transaction", update);
 		editor.on("focus", update);
 		editor.on("blur", update);
+		resolvedScrollContainer?.addEventListener("scroll", update, {
+			passive: true,
+		});
+		window.addEventListener("scroll", update, true);
+		window.addEventListener("resize", update);
 
 		return () => {
 			editor.off("selectionUpdate", update);
 			editor.off("transaction", update);
 			editor.off("focus", update);
 			editor.off("blur", update);
+			resolvedScrollContainer?.removeEventListener("scroll", update);
+			window.removeEventListener("scroll", update, true);
+			window.removeEventListener("resize", update);
 		};
-	}, [editor]);
-
-	if (!paletteState.visible) return null;
-
-	const activeMarks = MARK_DISPLAY.filter((mark) =>
-		paletteState.activeMarkNames.includes(mark.name),
-	);
+	}, [editor, scrollContainer]);
+	if (!editor) return null;
+	const dividerClass = paletteState.showDashedDivider
+		? "[border-block-start:0.5px_dashed_#d0d0d0]"
+		: "border-transparent";
 
 	return (
 		<div
-			className="absolute z-[3] [inset-inline-end:1rem] [inset-block-end:1rem]"
-			aria-hidden="true"
+			className={`z-[3] flex h-8 items-center justify-between bg-white px-4 ${dividerClass}`}
 		>
-			<div className="inline-flex items-center overflow-hidden rounded-full border border-[#c7c7c7] bg-[#f4f4f5] shadow-[0_1px_2px_rgba(0,0,0,0.09)]">
+			<p className="text-[12px] leading-none text-[#9b9b9b]">
+				{paletteState.wordCount} words
+			</p>
+			<div className="flex items-center gap-2 text-[#8d8d8d]">
 				{paletteState.canEscapeBoundary && (
-					<span className="inline-flex items-center justify-center border-e border-[#d3d4d8] px-[0.45rem] text-[0.8rem] leading-none text-[#4b5563] [min-inline-size:2.2rem] [block-size:1.9rem]">
+					<span className="inline-flex h-4 items-center rounded-[2px] bg-gradient-to-b from-[#eaeaea] to-[#e4e4e4] px-1 text-[12px] leading-none text-[#656565]">
 						esc
 					</span>
 				)}
-				{activeMarks.map((mark) => (
-					<span
-						key={mark.name}
-						className="inline-flex items-center justify-center border-e border-[#d3d4d8] text-[1rem] leading-none text-[#2f2f2f] [min-inline-size:1.9rem] [block-size:1.9rem]"
-					>
-						<span className={cn(mark.className)}>{mark.label}</span>
-					</span>
-				))}
-				<button
-					type="button"
-					className="mx-[0.15rem] inline-flex cursor-pointer items-center justify-center rounded-full border-none bg-[#eceef0] text-[1.1rem] text-[#2f2f2f] hover:bg-[#e2e4e7] [inline-size:2rem] [block-size:2rem]"
-					onMouseDown={(event) => event.preventDefault()}
-					onClick={() => {
-						if (!editor) return;
-						editor
-							.chain()
-							.focus(undefined, { scrollIntoView: false })
-							.insertContent("/")
-							.run();
-					}}
-				>
-					/
-				</button>
+				{paletteState.activeMarkNames.includes("bold") && (
+					<MingcuteBoldLine className="size-4" />
+				)}
+				{paletteState.activeMarkNames.includes("italic") && (
+					<MingcuteItalicLine className="size-4" />
+				)}
+				{paletteState.activeMarkNames.includes("link") && (
+					<MingcuteLinkLine className="size-4" />
+				)}
 			</div>
 		</div>
 	);
+}
+
+function countWords(text: string) {
+	const trimmed = text.trim();
+	if (trimmed.length === 0) return 0;
+	return trimmed.split(/\s+/).length;
 }

@@ -13,7 +13,7 @@ import { TaskItem } from "@tiptap/extension-list";
 import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { keymatch } from "keymatch";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createAppMenu } from "./appMenu";
 import { FormattingPalette } from "./editor/FormattingPalette";
 import { handleImagePaste } from "./editor/handleImagePaste";
@@ -149,6 +149,8 @@ function MarkdownEditor({
 	const latestMarkdownRef = useRef(initialMarkdown);
 	const saveTimerRef = useRef<number | null>(null);
 	const editorRootRef = useRef<HTMLDivElement | null>(null);
+	const [editorViewportEl, setEditorViewportEl] =
+		useState<HTMLDivElement | null>(null);
 	const initialDoc = useMemo(
 		() => markdownToTiptapDoc(initialMarkdown),
 		[initialMarkdown],
@@ -209,10 +211,12 @@ function MarkdownEditor({
 
 	return (
 		<div className="editorRoot" ref={editorRootRef}>
-			<EditorContent editor={editor} />
+			<div className="editorViewport" ref={setEditorViewportEl}>
+				<EditorContent editor={editor} />
+			</div>
 			<LinkPopover editor={editor} containerRef={editorRootRef} />
 			<VirtualCursor editor={editor} containerRef={editorRootRef} />
-			<FormattingPalette editor={editor} />
+			<FormattingPalette editor={editor} scrollContainer={editorViewportEl} />
 		</div>
 	);
 }
