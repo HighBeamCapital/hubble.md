@@ -15,7 +15,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createAppMenu } from "./appMenu";
-import { FormattingPalette } from "./editor/FormattingPalette";
+import { FormattingStatusBar } from "./editor/FormattingStatusBar";
 import { handleImagePaste } from "./editor/handleImagePaste";
 import { createImageExtension } from "./editor/ImageExtension";
 import { LinkPopover } from "./editor/LinkPopover";
@@ -225,7 +225,7 @@ function MarkdownEditor({
 				/>
 			</div>
 			<LinkPopover editor={editor} containerRef={editorRootRef} />
-			<FormattingPalette editor={editor} scrollContainer={editorViewportEl} />
+			<FormattingStatusBar editor={editor} scrollContainer={editorViewportEl} />
 		</div>
 	);
 }

@@ -12,7 +12,7 @@ type PaletteState = {
 	showDashedDivider: boolean;
 };
 
-export function FormattingPalette({
+export function FormattingStatusBar({
 	editor,
 	scrollContainer,
 }: {
