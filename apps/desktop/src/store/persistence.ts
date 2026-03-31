@@ -68,7 +68,7 @@ export function getInitialState(): DesktopState {
 	return {
 		workspace: hydrateWorkspace(p?.workspace),
 		document: emptyDoc(p?.document?.lastOpenedPath ?? null),
-		ui: { sidebarOpen: p?.ui?.sidebarOpen ?? true, isSwitcherOpen: false },
+		ui: { sidebarOpen: p?.ui?.sidebarOpen ?? false, isSwitcherOpen: false },
 	};
 }
 

@@ -60,7 +60,6 @@ export function Toolbar({
 						size="icon-sm"
 						onClick={toggleSidebar}
 						aria-label="Toggle sidebar"
-						className={sidebarOpen ? "text-brand" : ""}
 					>
 						<MingcuteLayoutLeftLine className="size-4" />
 					</Button>

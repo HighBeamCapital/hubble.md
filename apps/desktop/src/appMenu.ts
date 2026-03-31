@@ -32,6 +32,7 @@ async function createFileSubmenu(actions: {
 	open: () => void;
 	newWorkspace: () => void;
 	openWorkspace: () => void;
+	hasWorkspace: boolean;
 }): Promise<Submenu> {
 	return Submenu.new({
 		text: "File",
@@ -62,6 +63,7 @@ async function createFileSubmenu(actions: {
 				id: "open-workspace",
 				text: "Open Folder…",
 				accelerator: "CmdOrCtrl+Shift+O",
+				enabled: actions.hasWorkspace,
 				action: () => actions.openWorkspace(),
 			}),
 			await PredefinedMenuItem.new({
@@ -96,6 +98,7 @@ export async function createAppMenu(actions: {
 	open: () => void;
 	newWorkspace: () => void;
 	openWorkspace: () => void;
+	hasWorkspace: boolean;
 }): Promise<Menu> {
 	const items: Submenu[] = [
 		await createFileSubmenu(actions),

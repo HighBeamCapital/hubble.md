@@ -31,7 +31,7 @@ import {
 	forceKeepLocalEdits,
 	handleExternalFileChange,
 	loadPath,
-	openWorkspace,
+	openWorkspaceWithSidebar,
 	refreshFiles,
 	reloadFromDiskConflict,
 	savePathContent,
@@ -179,8 +179,9 @@ function App() {
 			const menu = await createAppMenu({
 				newNote: () => void createNote(),
 				open: () => void openFilePicker(),
-				newWorkspace: () => void openWorkspace(),
+				newWorkspace: () => void openWorkspaceWithSidebar(),
 				openWorkspace: () => setWorkspaceSwitcherOpen(true),
+				hasWorkspace,
 			});
 			await menu.setAsAppMenu();
 		};
@@ -190,11 +191,12 @@ function App() {
 				event.preventDefault();
 				await createNote();
 			} else if (keymatch(event, "CmdOrCtrl+Shift+O")) {
+				if (!workspaceStore.get().workspacePath) return;
 				event.preventDefault();
 				setWorkspaceSwitcherOpen(true);
 			} else if (keymatch(event, "CmdOrCtrl+Shift+N")) {
 				event.preventDefault();
-				await openWorkspace();
+				await openWorkspaceWithSidebar();
 			} else if (keymatch(event, "CmdOrCtrl+O")) {
 				event.preventDefault();
 				await openFilePicker();
@@ -212,7 +214,7 @@ function App() {
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [openFilePicker]);
+	}, [openFilePicker, hasWorkspace]);
 
 	useEffect(() => {
 		let disposed = false;
@@ -301,7 +303,7 @@ function App() {
 										{!hasWorkspace && (
 											<Button
 												variant="outline"
-												onClick={() => void openWorkspace()}
+												onClick={() => void openWorkspaceWithSidebar()}
 											>
 												Open folder
 											</Button>

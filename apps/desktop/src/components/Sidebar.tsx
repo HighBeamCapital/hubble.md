@@ -49,7 +49,6 @@ export function Sidebar() {
 
 	if (!sidebarOpen) return null;
 	if (!workspacePath) {
-		if (!currentFilePath) return null;
 		return (
 			<aside className="flex w-[220px] shrink-0 flex-col overflow-hidden border-e border-sidebar-border bg-sidebar">
 				<div className="flex h-full flex-col items-start justify-center gap-3 px-3 text-sm">

@@ -76,6 +76,14 @@ export function clearViewer() {
 	viewerStore.set((state) => emptyDoc(state.lastOpenedPath));
 }
 
+/** Opens a workspace and reveals the sidebar. */
+export async function openWorkspaceWithSidebar() {
+	await openWorkspace();
+	if (workspaceStore.get().workspacePath !== null) {
+		sidebarOpenStore.set(true);
+	}
+}
+
 /** Opens a workspace by path. If no path given, shows a folder picker first. */
 export async function openWorkspace(path?: string) {
 	if (!path) {

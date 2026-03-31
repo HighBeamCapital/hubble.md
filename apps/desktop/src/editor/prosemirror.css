@@ -11,6 +11,10 @@
 	margin-inline-start: 1rem;
 }
 
+.ProseMirror > :first-child {
+	padding-block-start: 1rem;
+}
+
 .ProseMirror h1 {
 	font-size: 1.5rem;
 	font-weight: 600;
