@@ -4,10 +4,10 @@ import { loadPath, refreshFiles } from "./store/actions";
 import { workspaceStore } from "./store/state";
 
 export async function createNote() {
-	const ws = workspaceStore.get().workspacePath;
-	if (!ws) return;
+	const workspacePath = workspaceStore.get().workspacePath;
+	if (!workspacePath) return;
 	const picked = await save({
-		defaultPath: ws,
+		defaultPath: workspacePath,
 		title: "New Markdown file",
 		filters: [{ name: "Markdown", extensions: ["md"] }],
 	});

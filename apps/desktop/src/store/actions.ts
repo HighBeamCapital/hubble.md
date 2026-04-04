@@ -23,19 +23,18 @@ import {
 
 export async function refreshFiles(path = workspaceStore.get().workspacePath) {
 	if (!path) return;
+	let files: FileEntry[] = [];
 
 	try {
-		const files = await invoke<FileEntry[]>("list_directory", { path });
-		workspaceStore.set((state) => {
-			if (state.workspacePath !== path) return state;
-			return { ...state, files };
-		});
+		files = await invoke<FileEntry[]>("list_directory", { path });
 	} catch {
-		workspaceStore.set((state) => {
-			if (state.workspacePath !== path) return state;
-			return { ...state, files: [] };
-		});
+		files = [];
 	}
+
+	workspaceStore.set((state) => {
+		if (state.workspacePath !== path) return state;
+		return { ...state, files };
+	});
 }
 
 export function touchFile(path: string) {
@@ -86,30 +85,30 @@ export async function openWorkspaceWithSidebar() {
 
 /** Opens a workspace by path. If no path given, shows a folder picker first. */
 export async function openWorkspace(path?: string) {
-	if (!path) {
+	let nextPath = path;
+	if (!nextPath) {
 		const selected = await open({
 			multiple: false,
 			directory: true,
 			title: "Open Folder",
 		});
 		if (typeof selected !== "string") return;
-		path = selected;
+		nextPath = selected;
 	}
 
 	workspaceStore.set((state) => {
-		const filtered = state.recentWorkspaces.filter((p) => p !== path);
+		const filtered = state.recentWorkspaces.filter((p) => p !== nextPath);
 		return {
 			...state,
-			workspacePath: path,
-			recentWorkspaces: [path, ...filtered].slice(0, MAX_RECENT),
+			workspacePath: nextPath,
+			recentWorkspaces: [nextPath, ...filtered].slice(0, MAX_RECENT),
 			files: [],
 		};
 	});
 	switcherOpenStore.set(false);
+	await refreshFiles(nextPath);
 
-	await refreshFiles(path);
-
-	const lastFile = workspaceStore.get().lastOpenedPaths[path];
+	const lastFile = workspaceStore.get().lastOpenedPaths[nextPath];
 	if (lastFile) {
 		await loadPath(lastFile);
 		return;
@@ -148,16 +147,13 @@ export async function savePathContent(
 	options?: { force?: boolean },
 ) {
 	const current = viewerStore.get();
+	const force = options?.force === true;
 	if (current.currentPath !== path) return;
-	if (!options?.force && current.externalChange.kind === "conflict") return;
-	if (
-		!options?.force &&
-		current.content === content &&
-		content === getBaseline(current)
-	)
+	if (!force && current.externalChange.kind === "conflict") return;
+	if (!force && current.content === content && content === getBaseline(current))
 		return;
 
-	if (!options?.force) {
+	if (!force) {
 		try {
 			const currentDiskContent = await invoke<string>("read_file_text", {
 				path,

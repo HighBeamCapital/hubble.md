@@ -107,17 +107,17 @@ export function withOpenedDoc(
 	path: string,
 	content: string,
 ): DesktopState {
-	const workspace = isInWorkspace(path, state.workspace.workspacePath)
-		? {
-				...state.workspace,
-				lastOpenedPaths: state.workspace.workspacePath
-					? {
-							...state.workspace.lastOpenedPaths,
-							[state.workspace.workspacePath]: path,
-						}
-					: state.workspace.lastOpenedPaths,
-			}
-		: state.workspace;
+	const workspacePath = state.workspace.workspacePath;
+	const workspace =
+		workspacePath && isInWorkspace(path, workspacePath)
+			? {
+					...state.workspace,
+					lastOpenedPaths: {
+						...state.workspace.lastOpenedPaths,
+						[workspacePath]: path,
+					},
+				}
+			: state.workspace;
 
 	return {
 		...state,

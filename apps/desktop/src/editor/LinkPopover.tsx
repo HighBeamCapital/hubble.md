@@ -308,8 +308,7 @@ export function LinkPopover({
 
 			const container = containerRef.current;
 			const floatingEl = popoverRef.current;
-			const shouldPosition =
-				link || machineStateRef.current.pendingCreation;
+			const shouldPosition = link || machineStateRef.current.pendingCreation;
 			if (!container || !floatingEl || !shouldPosition) return;
 			updateFloatingPosition(
 				editor,
