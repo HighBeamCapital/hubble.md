@@ -89,6 +89,10 @@
 	text-decoration: underline;
 }
 
+.ProseMirror.mod-held span[data-link="true"] {
+	cursor: pointer;
+}
+
 .pm-ghost-text {
 	opacity: 0.35;
 	user-select: none;

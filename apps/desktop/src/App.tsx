@@ -22,6 +22,7 @@ import { Button } from "./components/ui/button";
 import { FormattingStatusBar } from "./editor/FormattingStatusBar";
 import { handleImagePaste } from "./editor/handleImagePaste";
 import { createImageExtension } from "./editor/ImageExtension";
+import { LinkClickExtension } from "./editor/LinkClickExtension";
 import { LinkCreationGhostExtension } from "./editor/LinkCreationGhostExtension";
 import { LinkPopover } from "./editor/LinkPopover";
 import { SmartLinkExtension } from "./editor/SmartLinkExtension";
@@ -398,6 +399,7 @@ function MarkdownEditor({
 			}),
 			LinkExtension,
 			SmartLinkExtension,
+			LinkClickExtension,
 			LinkCreationGhostExtension,
 			MarkdownRolloverExtension,
 			createImageExtension(path),
