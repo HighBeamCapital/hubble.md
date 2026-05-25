@@ -1,18 +1,54 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react";
+import { useStoreValue } from "@simplestack/store/react";
+import Image from "@tiptap/extension-image";
+import {
+	type NodeViewProps,
+	NodeViewWrapper,
+	ReactNodeViewRenderer,
+} from "@tiptap/react";
 import { type CSSProperties, useEffect, useState } from "react";
-import { toast } from "sonner";
 import MingcuteLoading3Line from "~icons/mingcute/loading-3-line";
-import { persistPastedImage } from "./handleImagePaste";
+import { resolveAssetDownloadUrl, uploadAssetFile } from "../store/actions";
+import { assetsStore, currentPathStore } from "../store/state";
 
 const uploads = new Map<string, Promise<string>>();
 
-export function ImageNodeView({
-	node,
-	filePath,
-	selected,
-	updateAttributes,
-}: NodeViewProps & { filePath: string }) {
+export function createWebImageExtension() {
+	return Image.extend({
+		addAttributes() {
+			return {
+				...this.parent?.(),
+				uploadId: {
+					default: null,
+					renderHTML: () => ({}),
+				},
+				uploadStatus: {
+					default: null,
+					renderHTML: () => ({}),
+				},
+				uploadFile: {
+					default: null,
+					renderHTML: () => ({}),
+				},
+				width: {
+					default: null,
+					renderHTML: () => ({}),
+				},
+				height: {
+					default: null,
+					renderHTML: () => ({}),
+				},
+			};
+		},
+		addNodeView() {
+			return ReactNodeViewRenderer(WebImageNodeView);
+		},
+	}).configure({
+		inline: false,
+		allowBase64: true,
+	});
+}
+
+function WebImageNodeView({ node, selected, updateAttributes }: NodeViewProps) {
 	const rawSrc = String(node.attrs.src ?? "");
 	const uploadId =
 		typeof node.attrs.uploadId === "string" ? node.attrs.uploadId : null;
@@ -21,7 +57,13 @@ export function ImageNodeView({
 	const width = typeof node.attrs.width === "number" ? node.attrs.width : 640;
 	const height =
 		typeof node.attrs.height === "number" ? node.attrs.height : 360;
+	const assets = useStoreValue(assetsStore);
+	const path = useStoreValue(currentPathStore) ?? "";
+	const assetKey = assets
+		.map((asset) => `${asset.path}:${asset.storageId}:${asset.deleted}`)
+		.join("|");
 	const [resolvedSrc, setResolvedSrc] = useState(rawSrc);
+	const [resolveFailed, setResolveFailed] = useState(false);
 	const hasMeasuredFrame =
 		typeof node.attrs.width === "number" &&
 		typeof node.attrs.height === "number";
@@ -35,7 +77,7 @@ export function ImageNodeView({
 	useEffect(() => {
 		if (!uploadId || !uploadFile || rawSrc) return;
 		let cancelled = false;
-		void uploadOnce(uploadId, filePath, uploadFile)
+		void uploadOnce(uploadId, path, uploadFile)
 			.then((src) => {
 				if (cancelled) return;
 				updateAttributes({
@@ -45,9 +87,8 @@ export function ImageNodeView({
 					uploadFile: null,
 				});
 			})
-			.catch((error) => {
-				const message = error instanceof Error ? error.message : String(error);
-				toast.error("Failed to paste image", { description: message });
+			.catch((err) => {
+				console.error("image upload failed:", err);
 				if (!cancelled) {
 					updateAttributes({
 						uploadId: null,
@@ -59,23 +100,37 @@ export function ImageNodeView({
 		return () => {
 			cancelled = true;
 		};
-	}, [filePath, rawSrc, updateAttributes, uploadFile, uploadId]);
+	}, [path, rawSrc, updateAttributes, uploadFile, uploadId]);
 
 	useEffect(() => {
+		void assetKey;
+		let cancelled = false;
 		if (rawSrc.trim().length === 0) {
 			setResolvedSrc("");
+			setResolveFailed(false);
 			return;
 		}
-		if (!isResolvableLocalPath(rawSrc)) {
+		if (!isRelativeAssetPath(rawSrc)) {
 			setResolvedSrc(rawSrc);
+			setResolveFailed(false);
 			return;
 		}
-		const absolutePath = joinToAbsolutePath(dirname(filePath), rawSrc);
-		setResolvedSrc(convertFileSrc(absolutePath));
-	}, [rawSrc, filePath]);
+		setResolveFailed(false);
+		void resolveAssetDownloadUrl(path, rawSrc).then((url) => {
+			if (cancelled) return;
+			setResolvedSrc(url ?? "");
+			setResolveFailed(!url);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [rawSrc, assetKey, path]);
+
+	const isWaitingForResolvedSrc =
+		rawSrc.trim().length > 0 && resolvedSrc.length === 0 && !resolveFailed;
 
 	return (
-		<NodeViewWrapper as="div" data-drag-handle>
+		<NodeViewWrapper as="div" data-drag-handle data-hubble-image-src={rawSrc}>
 			<div
 				className={
 					hasMeasuredFrame
@@ -93,6 +148,8 @@ export function ImageNodeView({
 						title={node.attrs.title || ""}
 						className={selected ? "outline-2 outline-blue-400" : ""}
 					/>
+				) : isWaitingForResolvedSrc ? (
+					<UploadPlaceholder />
 				) : (
 					<div className="pm-image-missing">Image unavailable</div>
 				)}
@@ -101,14 +158,12 @@ export function ImageNodeView({
 	);
 }
 
-function uploadOnce(id: string, filePath: string, file: File): Promise<string> {
+function uploadOnce(id: string, path: string, file: File): Promise<string> {
 	const existing = uploads.get(id);
 	if (existing) return existing;
-	const upload = persistPastedImage({ filePath, imageFile: file }).finally(
-		() => {
-			uploads.delete(id);
-		},
-	);
+	const upload = uploadAssetFile({ path, file }).finally(() => {
+		uploads.delete(id);
+	});
 	uploads.set(id, upload);
 	return upload;
 }
@@ -125,33 +180,6 @@ function UploadPlaceholder() {
 	);
 }
 
-function dirname(filePath: string): string {
-	const normalized = filePath.split("\\").join("/");
-	const idx = normalized.lastIndexOf("/");
-	if (idx <= 0) return normalized;
-	return normalized.slice(0, idx);
-}
-
-function normalizePosixPath(path: string): string {
-	const parts = path.split("/");
-	const stack: string[] = [];
-	for (const part of parts) {
-		if (part === "" || part === ".") continue;
-		if (part === "..") {
-			stack.pop();
-			continue;
-		}
-		stack.push(part);
-	}
-	return `/${stack.join("/")}`;
-}
-
-function joinToAbsolutePath(baseDir: string, relativePath: string): string {
-	const rel = relativePath.split("\\").join("/");
-	if (rel.startsWith("/")) return normalizePosixPath(rel);
-	return normalizePosixPath(`${baseDir}/${rel}`);
-}
-
-function isResolvableLocalPath(src: string): boolean {
-	return !/^(data:|https?:|file:|asset:)/i.test(src);
+function isRelativeAssetPath(src: string): boolean {
+	return !/^(data:|https?:|file:|blob:)/i.test(src);
 }
