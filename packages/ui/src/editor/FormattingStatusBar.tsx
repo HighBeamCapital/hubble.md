@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import MingcuteBoldLine from "~icons/mingcute/bold-line";
 import MingcuteItalicLine from "~icons/mingcute/italic-line";
 import MingcuteLinkLine from "~icons/mingcute/link-line";
+import { shouldShowFooterDivider } from "../lib/scrollOverflow";
 import { Button } from "../primitives/button";
 
 type CountMode = "words" | "chars";
@@ -44,14 +45,9 @@ export function FormattingStatusBar({
 			const wordCount = countWords(text);
 			const charCount = text.length;
 			const { state } = editor;
-			const scrollContainer = resolvedScrollContainer;
-			const scrollHeight = scrollContainer?.scrollHeight ?? 0;
-			const clientHeight = scrollContainer?.clientHeight ?? 0;
-			const scrollTop = scrollContainer?.scrollTop ?? 0;
-			const maxScrollTop = Math.max(scrollHeight - clientHeight, 0);
-			const hasMeaningfulOverflow = maxScrollTop > 8;
-			const isAtBottom = maxScrollTop - scrollTop <= 2;
-			const showDashedDivider = hasMeaningfulOverflow && !isAtBottom;
+			const showDashedDivider = shouldShowFooterDivider(
+				resolvedScrollContainer,
+			);
 			if (!editor.isFocused || !state.selection.empty) {
 				setPaletteState({
 					wordCount,

@@ -21,7 +21,7 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"dev": "tsc -p tsconfig.json --watch"
+		"dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
 	},
 	"dependencies": {
 		"zod": "^4.3.6"

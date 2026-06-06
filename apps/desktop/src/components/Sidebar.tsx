@@ -1,5 +1,7 @@
 import { Button, Sidebar as SharedSidebar } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
+import MingcuteAddFill from "~icons/mingcute/add-fill";
+import { createMarkdownFile } from "../fileActions";
 import { loadPath, openWorkspace, setSortMode } from "../store/actions";
 import {
 	currentPathStore,
@@ -51,9 +53,25 @@ export function Sidebar() {
 			currentPath={currentPath ?? null}
 			sortMode={sortMode}
 			header={<WorkspaceSwitcher />}
+			footer={<NewNoteListButton />}
 			getDisplayPath={relativePath}
 			onSortModeChange={setSortMode}
 			onSelectFile={(path) => void loadPath(path)}
 		/>
+	);
+}
+
+function NewNoteListButton() {
+	return (
+		<div>
+			<button
+				type="button"
+				className="flex w-full items-center gap-1 border-none bg-transparent [padding-block:0.5rem] [padding-inline:1rem] text-start text-xs font-semibold text-muted-foreground transition-colors duration-100 ease-out hover:bg-sidebar-accent hover:text-sidebar-foreground"
+				onClick={() => void createMarkdownFile()}
+			>
+				<MingcuteAddFill className="size-3 shrink-0" />
+				<span>Add new</span>
+			</button>
+		</div>
 	);
 }

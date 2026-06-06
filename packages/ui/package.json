@@ -19,7 +19,7 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json && cp src/*.css dist/ && cp src/editor/*.css dist/editor/",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"dev": "tsc -p tsconfig.json --watch"
+		"dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.3.0",
