@@ -65,6 +65,7 @@
 		"directories": {
 			"output": "release"
 		},
+		"icon": "assets/icon.icns",
 		"files": [
 			"out/**"
 		],
