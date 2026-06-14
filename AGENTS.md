@@ -21,3 +21,7 @@ Defaults: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `w
 ### Domain docs
 
 Single-context — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Review readiness
+
+Use `.agents/skills/review-readiness` before handing code to a human reviewer.
