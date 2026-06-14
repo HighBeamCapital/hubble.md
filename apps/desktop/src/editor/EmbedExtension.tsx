@@ -8,6 +8,7 @@ import alpineRuntime from "alpinejs/dist/cdn.min.js?raw";
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "../desktopApi";
 import "./EmbedExtension.css";
+import iframeRuntime from "./iframeRuntime.js?raw";
 
 type EmbedAttrs = {
 	kind?: "bundle" | "iframe";
@@ -39,6 +40,13 @@ type HubbleEmbedApi = {
 			size: number;
 		}[]
 	>;
+};
+
+type IframeRequest = {
+	type?: unknown;
+	id?: unknown;
+	method?: unknown;
+	params?: unknown;
 };
 
 declare global {
@@ -165,7 +173,13 @@ function EmbedNodeView({
 	const attrs = node.attrs as EmbedAttrs;
 
 	if (attrs.kind === "iframe") {
-		return <IframeEmbedNodeView attrs={attrs} filePath={options.filePath} />;
+		return (
+			<IframeEmbedNodeView
+				attrs={attrs}
+				filePath={options.filePath}
+				workspacePath={options.workspacePath}
+			/>
+		);
 	}
 
 	return (
@@ -206,9 +220,11 @@ function BundleEmbedNodeView({
 function IframeEmbedNodeView({
 	attrs,
 	filePath,
+	workspacePath,
 }: {
 	attrs: EmbedAttrs;
 	filePath: string;
+	workspacePath: string | null;
 }) {
 	const iframeRef = useRef<HTMLIFrameElement | null>(null);
 	const [srcDoc, setSrcDoc] = useState("");
@@ -267,6 +283,26 @@ function IframeEmbedNodeView({
 		window.addEventListener("message", onMessage);
 		return () => window.removeEventListener("message", onMessage);
 	}, []);
+
+	useEffect(() => {
+		const iframe = iframeRef.current;
+		if (!iframe) return;
+
+		const onMessage = (event: MessageEvent) => {
+			if (event.source !== iframe.contentWindow) return;
+			const request = event.data as IframeRequest | null;
+			if (!request || request.type !== "hubble:request") return;
+			void handleIframeRequest(request, workspacePath).then((response) => {
+				iframe.contentWindow?.postMessage(
+					{ ...response, id: request.id, type: "hubble:response" },
+					"*",
+				);
+			});
+		};
+
+		window.addEventListener("message", onMessage);
+		return () => window.removeEventListener("message", onMessage);
+	}, [workspacePath]);
 
 	return (
 		<NodeViewWrapper className="hubble-embed">
@@ -393,6 +429,60 @@ function isValidEmbedName(name: string) {
 	return /^[a-z0-9][a-z0-9-]*$/.test(name);
 }
 
+async function handleIframeRequest(
+	request: IframeRequest,
+	workspacePath: string | null,
+) {
+	try {
+		if (!workspacePath) {
+			throw new Error("Open a workspace to query files.");
+		}
+		const params =
+			request.params && typeof request.params === "object"
+				? (request.params as Record<string, unknown>)
+				: {};
+		if (request.method === "files.list") {
+			const glob = typeof params.glob === "string" ? params.glob : "**/*";
+			return {
+				ok: true,
+				value: await desktopApi.listEmbedFiles(workspacePath, glob),
+			};
+		}
+		if (request.method === "files.read") {
+			const path = typeof params.path === "string" ? params.path : "";
+			if (!isSafeWorkspacePath(path)) {
+				throw new Error("File path must be workspace-relative.");
+			}
+			const absolutePath = await desktopApi.resolvePath(
+				joinPath(workspacePath, path),
+			);
+			return {
+				ok: true,
+				value: await desktopApi.readFileText(absolutePath),
+			};
+		}
+		throw new Error(`Unknown Hubble iframe method: ${String(request.method)}`);
+	} catch (error) {
+		return {
+			ok: false,
+			error: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+function isSafeWorkspacePath(path: string): boolean {
+	if (
+		!path ||
+		path.startsWith("/") ||
+		path.startsWith("\\") ||
+		path.includes(":")
+	)
+		return false;
+	return !path
+		.split(/[\\/]+/)
+		.some((part) => part === "" || part === "." || part === "..");
+}
+
 function injectIframeRuntime(html: string): string {
 	const runtime = `<style>
 html,
@@ -400,28 +490,8 @@ body {
   overflow: hidden;
 }
 </style>
-${alpineRuntime ? `<script defer>${alpineRuntime}</script>` : ""}
-<script>
-(() => {
-  const send = () => {
-    const body = document.body;
-    const bodyTop = body ? body.getBoundingClientRect().top : 0;
-    const height = body
-      ? Array.from(body.children).reduce((max, child) => {
-          if (!(child instanceof HTMLElement)) return max;
-          if (child.tagName === "SCRIPT" || child.tagName === "STYLE") return max;
-          return Math.max(max, child.getBoundingClientRect().bottom - bodyTop);
-        }, 0)
-      : 0;
-    parent.postMessage({ type: "hubble:embed-height", height }, "*");
-  };
-  const schedule = () => requestAnimationFrame(send);
-  window.addEventListener("load", schedule);
-  new ResizeObserver(schedule).observe(document.documentElement);
-  if (document.body) new ResizeObserver(schedule).observe(document.body);
-  schedule();
-})();
-</script>`;
+<script>${iframeRuntime}</script>
+${alpineRuntime ? `<script defer>${alpineRuntime}</script>` : ""}`;
 	if (/<\/body\s*>/i.test(html)) {
 		return html.replace(/<\/body\s*>/i, `${runtime}</body>`);
 	}
