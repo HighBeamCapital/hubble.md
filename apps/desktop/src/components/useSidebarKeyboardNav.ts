@@ -1,18 +1,5 @@
-import {
-	type RefObject,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 import { EDITOR_INPUT_SELECTOR } from "../selectors";
-
-function isEditableElement(el: Element | null): boolean {
-	if (!el) return false;
-	if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-		return true;
-	return (el as HTMLElement).isContentEditable;
-}
 
 export function useSidebarKeyboardNav<T>({
 	items,
@@ -26,8 +13,10 @@ export function useSidebarKeyboardNav<T>({
 	activeIndex?: number;
 }) {
 	const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-	const focusedIndexRef = useRef(focusedIndex);
-	focusedIndexRef.current = focusedIndex;
+	const getActionIndex = useCallback(
+		() => focusedIndex ?? (activeIndex >= 0 ? activeIndex : null),
+		[activeIndex, focusedIndex],
+	);
 
 	useEffect(() => {
 		if (focusedIndex === null) return;
@@ -35,21 +24,6 @@ export function useSidebarKeyboardNav<T>({
 			?.querySelector(`[data-sidebar-index="${focusedIndex}"]`)
 			?.scrollIntoView({ block: "nearest" });
 	}, [focusedIndex, navRef]);
-
-	// Enter opens hovered item even when nav isn't focused
-	useEffect(() => {
-		const onGlobalEnter = (event: KeyboardEvent) => {
-			if (event.key !== "Enter") return;
-			const idx = focusedIndexRef.current;
-			if (idx === null) return;
-			if (navRef.current?.contains(document.activeElement)) return;
-			if (isEditableElement(document.activeElement)) return;
-			event.preventDefault();
-			if (items[idx]) onSelect(items[idx]);
-		};
-		window.addEventListener("keydown", onGlobalEnter);
-		return () => window.removeEventListener("keydown", onGlobalEnter);
-	}, [items, onSelect, navRef]);
 
 	const onKeyDown = useCallback(
 		(event: React.KeyboardEvent) => {
@@ -67,7 +41,7 @@ export function useSidebarKeyboardNav<T>({
 					break;
 				}
 				case "Enter": {
-					const idx = focusedIndexRef.current;
+					const idx = getActionIndex();
 					if (idx !== null && items[idx]) {
 						event.preventDefault();
 						onSelect(items[idx]);
@@ -82,7 +56,7 @@ export function useSidebarKeyboardNav<T>({
 				}
 			}
 		},
-		[items, onSelect, activeIndex],
+		[items, onSelect, activeIndex, getActionIndex],
 	);
 
 	return { focusedIndex, setFocusedIndex, onKeyDown };

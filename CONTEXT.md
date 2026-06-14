@@ -33,6 +33,10 @@ The optional capability that binds a [[Workspace]] to a Convex deployment, enabl
 
 A markdown document on the local filesystem or in a Workspace.
 
+### Slash Command
+
+A formatting command launched by typing `/` in a Markdown File. Slash Commands create a new block after the current block, except when the current block is an empty paragraph, where the command converts that paragraph in place.
+
 ### File Properties
 
 User-facing structured fields attached to a Markdown File. File Properties are distinct from the document body and are stored in the file's front matter.

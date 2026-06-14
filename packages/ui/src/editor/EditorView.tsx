@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LinkClickExtension } from "./LinkClickExtension";
 import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
+import { SlashCommandMenu } from "./SlashCommandMenu";
 import { SmartLinkExtension } from "./SmartLinkExtension";
 import { VirtualCursor } from "./VirtualCursor";
 import "./EditorView.css";
@@ -28,6 +29,7 @@ import {
 	FilePropertiesPanel,
 	frontMatterStateFromMarkdown,
 } from "./FilePropertiesPanel";
+import { FormatCommandMenu } from "./FormatCommandMenu";
 import { FormattingStatusBar } from "./FormattingStatusBar";
 import type { VirtualCursorMode } from "./virtualCursorMode";
 
@@ -256,6 +258,8 @@ export function EditorView({
 					onMessage={onMessage}
 					onCursorModeChange={setCursorModeOverride}
 				/>
+				<SlashCommandMenu editor={editor} viewportRef={editorViewportRef} />
+				<FormatCommandMenu editor={editor} viewportRef={editorViewportRef} />
 			</div>
 			<FormattingStatusBar editor={editor} scrollContainer={editorViewportEl} />
 		</div>
