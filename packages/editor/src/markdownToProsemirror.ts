@@ -76,7 +76,7 @@ function blockToPM(node: Content): JSONContent[] {
 			return [
 				{
 					type: "codeBlock",
-					// TipTap CodeBlock (not Lowlight) doesn’t have a language attr in StarterKit; keep plain.
+					attrs: { language: node.lang ?? null },
 					content: node.value ? [{ type: "text", text: node.value }] : [],
 				},
 			];

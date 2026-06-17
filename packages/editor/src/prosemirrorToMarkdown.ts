@@ -44,9 +44,13 @@ function blockToMarkdown(node: JSONContent): string {
 		}
 
 		case "codeBlock": {
-			const content = node.content?.[0]?.text ?? "";
-			// Use triple backticks for code blocks
-			return `\`\`\`\n${content}\n\`\`\``;
+			const content =
+				node.content
+					?.map((child) => (child.type === "text" ? (child.text ?? "") : ""))
+					.join("") ?? "";
+			const language =
+				typeof node.attrs?.language === "string" ? node.attrs.language : "";
+			return `\`\`\`${language}\n${content}\n\`\`\``;
 		}
 
 		case "horizontalRule": {

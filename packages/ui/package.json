@@ -29,6 +29,7 @@
 		"@floating-ui/dom": "^1.7.5",
 		"@hubble.md/editor": "workspace:*",
 		"@tiptap/core": "^3.4.3",
+		"@tiptap/extension-code-block-lowlight": "3.20.0",
 		"@tiptap/extension-list": "^3.4.2",
 		"@tiptap/pm": "^3.3.0",
 		"@tiptap/react": "^3.3.0",
@@ -36,7 +37,9 @@
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",
+		"highlight.js": "^11.11.1",
 		"keymatch": "^1.0.5",
+		"lowlight": "^3.3.0",
 		"tailwind-merge": "^3.5.0",
 		"zod": "^4.4.3"
 	},

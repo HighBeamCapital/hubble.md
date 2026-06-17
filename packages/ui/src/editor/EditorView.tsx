@@ -19,6 +19,7 @@ import {
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CODE_BLOCK_COPY_EVENT, HubbleCodeBlock } from "./CodeBlockExtension";
 import { LinkClickExtension } from "./LinkClickExtension";
 import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
@@ -128,7 +129,8 @@ export function EditorView({
 
 	const editor = useEditor({
 		extensions: [
-			StarterKit.configure({ listItem: false }),
+			StarterKit.configure({ codeBlock: false, listItem: false }),
+			HubbleCodeBlock,
 			LinkExtension,
 			SmartLinkExtension,
 			LinkClickExtension.configure({ onOpenExternalLink, onOpenWikiLink }),
@@ -217,6 +219,20 @@ export function EditorView({
 			}
 		};
 	}, [path, onSave]);
+
+	useEffect(() => {
+		if (!onMessage) return;
+		const handleCopyMessage = (event: Event) => {
+			const detail = (event as CustomEvent).detail as
+				| { message?: unknown; type?: unknown }
+				| undefined;
+			if (typeof detail?.message !== "string") return;
+			onMessage(detail.message, detail.type === "error" ? "error" : "success");
+		};
+		window.addEventListener(CODE_BLOCK_COPY_EVENT, handleCopyMessage);
+		return () =>
+			window.removeEventListener(CODE_BLOCK_COPY_EVENT, handleCopyMessage);
+	}, [onMessage]);
 
 	return (
 		<div
