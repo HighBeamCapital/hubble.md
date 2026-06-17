@@ -1,0 +1,62 @@
+name: Feature Request
+description: Propose a Hubble feature or product improvement.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the user need, workflow gap, or frustration behind the request.
+      placeholder: I am trying to ..., but today ...
+    validations:
+      required: true
+  - type: textarea
+    id: desired-behavior
+    attributes:
+      label: What should Hubble do?
+      description: Describe the behavior you want to see.
+      placeholder: A user should be able to ...
+    validations:
+      required: true
+  - type: textarea
+    id: current-workaround
+    attributes:
+      label: Current workaround
+      description: If you have a workaround today, describe it. If not, say so.
+    validations:
+      required: false
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples, references, or screenshots
+      description: Add examples from other tools, sketches, screenshots, or links that clarify the request.
+    validations:
+      required: false
+  - type: dropdown
+    id: importance
+    attributes:
+      label: How important is this to you?
+      multiple: false
+      options:
+        - "1 — Nice to have"
+        - "2"
+        - "3 — Useful improvement"
+        - "4"
+        - "5 — Blocks the workflow"
+    validations:
+      required: true
+  - type: textarea
+    id: blocked-by
+    attributes:
+      label: Blocked by
+      description: Link any issues that must be resolved first, or leave the default.
+      value: None - can start immediately
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Add links to parent issues, notes, user stories, or prior decisions.
+    validations:
+      required: false
