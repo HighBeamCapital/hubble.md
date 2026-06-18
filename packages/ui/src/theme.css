@@ -39,8 +39,8 @@
 	--chrome-inset-shadow: none;
 	--shadow-overlay:
 		0 8px 24px rgb(17 24 39 / 0.1), 0 1px 3px rgb(17 24 39 / 0.08);
-	--cursor-motion-duration: 130ms;
-	--cursor-motion-easing: ease;
+	--cursor-motion-duration: 105ms;
+	--cursor-motion-easing: linear(0, 0.44 25%, 0.75 50%, 0.94 75%, 1);
 	--sidebar: oklch(0.989 0.004 95); /* faint tint vs the white editor */
 	--sidebar-foreground: var(--foreground);
 	/* gray until the sidebar is focused (yellow via :focus-within below) */
