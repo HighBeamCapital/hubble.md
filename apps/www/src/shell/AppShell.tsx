@@ -1,4 +1,5 @@
 import { createConvexSubscriber } from "@hubble.md/convex-client";
+import { withMarkdownExtension } from "@hubble.md/editor";
 import { AppShellFrame } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { useEffect, useRef, useState } from "react";
@@ -280,7 +281,7 @@ export function AppShell({
 function normalizeNotePath(name: string): string {
 	const trimmed = name.trim();
 	if (!trimmed) return "";
-	return trimmed.endsWith(".md") ? trimmed : `${trimmed}.md`;
+	return withMarkdownExtension(trimmed);
 }
 
 function ExternalChangeBanner({

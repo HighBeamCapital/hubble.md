@@ -9,6 +9,15 @@
 	will-change: inline-size, transform, opacity;
 }
 
+.previewText {
+	mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+	-webkit-mask-image: linear-gradient(
+		to right,
+		black calc(100% - 20px),
+		transparent
+	);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.previewButton {
 		transition: none;

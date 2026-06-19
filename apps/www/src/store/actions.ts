@@ -1,4 +1,5 @@
 import { createConvexBackend } from "@hubble.md/convex-client";
+import { stripMarkdownExtension } from "@hubble.md/editor";
 import type { RemoteFile, SyncBackend } from "@hubble.md/sync";
 import { api } from "@hubble.md/sync-backend";
 import type { Doc } from "@hubble.md/sync-backend/types";
@@ -351,7 +352,7 @@ function assetPathsForNote(notePath: string, hash: string, file: File) {
 	const folder = slashIndex === -1 ? "" : normalized.slice(0, slashIndex + 1);
 	const name =
 		slashIndex === -1 ? normalized : normalized.slice(slashIndex + 1);
-	const stem = name.replace(/\.(md|markdown|mdown)$/i, "") || "note";
+	const stem = stripMarkdownExtension(name) || "note";
 	const markdownPath = `${stem}.assets/${hash.slice(0, 12)}.${imageExtension(file)}`;
 	return {
 		assetPath: `${folder}${markdownPath}`,

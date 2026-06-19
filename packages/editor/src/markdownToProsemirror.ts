@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { type Plugin, unified } from "unified";
 import { visit } from "unist-util-visit";
+import { wikiDisplayNameForTarget } from "./markdownPath";
 
 // Convert Markdown (string) -> TipTap JSONContent (ProseMirror document)
 export function markdownToTiptapDoc(markdown: string): JSONContent {
@@ -361,12 +362,6 @@ function textToPM(text: string): JSONContent[] {
 		out.push({ type: "text", text: text.slice(lastIndex) });
 	}
 	return out;
-}
-
-function wikiDisplayNameForTarget(target: string) {
-	const withoutHeading = target.split("#")[0] || target;
-	const fileName = withoutHeading.split("/").pop() || withoutHeading;
-	return fileName.replace(/\.(md|markdown|mdown)$/i, "");
 }
 
 function applyMark(

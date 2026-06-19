@@ -3,6 +3,7 @@ import { Plugin } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { toast } from "sonner";
 import { desktopApi } from "../desktopApi";
+import { resolveWikiPath as resolveWorkspaceWikiPath } from "../lib/wikiPath";
 import { loadPath } from "../store/actions";
 import { workspaceStore } from "../store/state";
 
@@ -33,10 +34,12 @@ async function followLink(href: string) {
 }
 
 function resolveWikiPath(href: string, target: string | null) {
-	const path = href.startsWith("/") ? href : target || href;
-	if (path.startsWith("/")) return path;
-	const workspacePath = workspaceStore.get().workspacePath;
-	return workspacePath ? `${workspacePath}/${path}` : path;
+	const workspace = workspaceStore.get();
+	return resolveWorkspaceWikiPath({
+		target: href.startsWith("/") ? href : target || href,
+		files: workspace.files,
+		workspacePath: workspace.workspacePath,
+	});
 }
 
 async function followLinkMark(attrs: {

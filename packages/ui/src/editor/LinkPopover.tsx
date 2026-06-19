@@ -5,7 +5,11 @@ import {
 	shift,
 	type VirtualElement,
 } from "@floating-ui/dom";
-import { getActiveLinkRange } from "@hubble.md/editor";
+import {
+	getActiveLinkRange,
+	wikiDisplayNameForTarget,
+	withMarkdownExtension,
+} from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { keymatch } from "keymatch";
@@ -309,11 +313,7 @@ function isHttpUrl(href: string) {
 		return false;
 	}
 }
-function updateLinkMark(
-	editor: Editor,
-	link: ActiveLink,
-	href: string,
-) {
+function updateLinkMark(editor: Editor, link: ActiveLink, href: string) {
 	const linkType = editor.state.schema.marks.link;
 	if (!linkType) return;
 	const attrs = isHttpUrl(href)
@@ -343,16 +343,15 @@ async function visitActiveLink(
 	onMessage?: (message: string, kind: "success" | "error") => void,
 ) {
 	if (link.kind === "wiki") {
-		await onOpenWikiLink(link.target ?? link.href);
+		if (!link.target) {
+			console.warn("Skipping wiki link without target", { href: link.href });
+			onMessage?.("Cannot open wiki link without a target", "error");
+			return;
+		}
+		await onOpenWikiLink(withMarkdownExtension(link.target));
 		return;
 	}
 	await visitLink(link.href, onOpenExternalLink, onMessage);
-}
-
-function wikiDisplayNameForTarget(target: string) {
-	const withoutHeading = target.split("#")[0] || target;
-	const fileName = withoutHeading.split(/[\\/]/).pop() || withoutHeading;
-	return fileName.replace(/\.(md|markdown|mdown)$/i, "");
 }
 
 function normalizedSearchValue(value: string) {
@@ -454,7 +453,7 @@ function updateFloatingPosition(
 	});
 }
 
-function playPreviewRevealAnimation(previewButton: HTMLButtonElement) {
+function playPreviewRevealAnimation(previewButton: HTMLDivElement) {
 	const easing =
 		getComputedStyle(previewButton).getPropertyValue("--ease-snappy").trim() ||
 		"ease-out";
@@ -491,7 +490,7 @@ function usePreviewRevealAnimation({
 		((reason?: PositionUpdateReason) => void) | null
 	>;
 }) {
-	const previewButtonRef = useRef<HTMLButtonElement | null>(null);
+	const previewButtonRef = useRef<HTMLDivElement | null>(null);
 	const previewRevealAnimationRef = useRef<Animation | null>(null);
 	const previousPopoverModeRef = useRef<PopoverMode>(mode);
 	const previousPreviewKeyRef = useRef<string | null>(activeKey);
@@ -554,7 +553,49 @@ function usePreviewRevealAnimation({
 	return previewButtonRef;
 }
 
+function PreviewLabel({ text }: { text: string }) {
+	const textRef = useRef<HTMLSpanElement | null>(null);
+	const [overflows, setOverflows] = useState(false);
+
+	const measureOverflow = useCallback(() => {
+		const element = textRef.current;
+		setOverflows(
+			Boolean(element && element.scrollWidth > element.clientWidth + 1),
+		);
+	}, []);
+
+	useLayoutEffect(() => {
+		const element = textRef.current;
+		if (!element) {
+			setOverflows(false);
+			return;
+		}
+		measureOverflow();
+		// CSS cannot tell us whether the text is actually clipped. Measure overflow
+		// so the fade mask only appears when there is hidden text to fade out.
+		// Hover padding and reveal animation also change the available label width.
+		const observer = new ResizeObserver(measureOverflow);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [measureOverflow]);
+
+	return (
+		<span
+			ref={textRef}
+			className={cn(
+				"block min-w-0 flex-1 overflow-hidden whitespace-nowrap",
+				overflows && styles.previewText,
+			)}
+		>
+			{text}
+		</span>
+	);
+}
+
 // ── Component ───────────────────────────────────────────────────────
+// Desktop still carries a local copy while it owns desktop-only stores, toasts,
+// and filesystem navigation. Keep preview UI changes in sync until that copy can
+// be removed.
 
 export function LinkPopover({
 	editor,
@@ -592,6 +633,7 @@ export function LinkPopover({
 	const machineStateRef = useRef(machineState);
 	const anchorRef = useRef(INITIAL_LINK_ANCHOR_STATE);
 	const lastSelectionActiveKeyRef = useRef<string | null>(null);
+	const expandNextLinkSessionRef = useRef(false);
 	const originalWikiTargetRef = useRef<{
 		activeKey: string;
 		target: string;
@@ -671,6 +713,12 @@ export function LinkPopover({
 			const linkType = editor.state.schema.marks.link;
 			if (!linkType) return;
 
+			const nextLink = {
+				...activeLink,
+				href: suggestion.path,
+				kind: "wiki" as const,
+				target: suggestion.target,
+			};
 			const attrs = {
 				href: suggestion.path,
 				kind: "wiki",
@@ -683,39 +731,41 @@ export function LinkPopover({
 				editor.view.dispatch(
 					editor.state.tr.setStoredMarks([...marks, linkType.create(attrs)]),
 				);
-				setHrefValue(suggestion.target);
-				dispatchMachineEvent({ type: "ESCAPE_REQUESTED" });
-				return;
-			}
-
-			const currentText = editor.state.doc.textBetween(
-				activeLink.from,
-				activeLink.to,
-				"",
-			);
-			// Update inline text only when it still matches the linked file name.
-			const oldTarget =
-				originalWikiTargetRef.current?.activeKey ===
-				machineStateRef.current.activeKey
-					? originalWikiTargetRef.current.target
-					: activeLink.target || activeLink.href;
-			const oldAutoTitle = wikiDisplayNameForTarget(oldTarget);
-			if (currentText === oldAutoTitle) {
-				const tr = editor.state.tr.replaceWith(
-					activeLink.from,
-					activeLink.to,
-					editor.state.schema.text(suggestion.title, [linkType.create(attrs)]),
-				);
-				editor.view.dispatch(tr);
 			} else {
-				const tr = editor.state.tr.removeMark(
+				const currentText = editor.state.doc.textBetween(
 					activeLink.from,
 					activeLink.to,
-					linkType,
+					"",
 				);
-				tr.addMark(activeLink.from, activeLink.to, linkType.create(attrs));
-				editor.view.dispatch(tr);
+				// Update inline text only when it still matches the linked file name.
+				const oldTarget =
+					originalWikiTargetRef.current?.activeKey ===
+					machineStateRef.current.activeKey
+						? originalWikiTargetRef.current.target
+						: activeLink.target || activeLink.href;
+				const oldAutoTitle = wikiDisplayNameForTarget(oldTarget);
+				if (currentText === oldAutoTitle) {
+					const tr = editor.state.tr.replaceWith(
+						activeLink.from,
+						activeLink.to,
+						editor.state.schema.text(suggestion.title, [
+							linkType.create(attrs),
+						]),
+					);
+					editor.view.dispatch(tr);
+				} else {
+					const tr = editor.state.tr.removeMark(
+						activeLink.from,
+						activeLink.to,
+						linkType,
+					);
+					tr.addMark(activeLink.from, activeLink.to, linkType.create(attrs));
+					editor.view.dispatch(tr);
+				}
 			}
+			// Edits can close before selection sync runs, so keep preview/open state
+			// aligned with the transaction we just dispatched.
+			setActiveLink(nextLink);
 			setHrefValue(suggestion.target);
 			dispatchMachineEvent({ type: "ESCAPE_REQUESTED" });
 		},
@@ -779,6 +829,10 @@ export function LinkPopover({
 				type: "LINK_SESSION_CHANGED",
 				activeKey,
 			});
+			if (expandNextLinkSessionRef.current && activeKey) {
+				expandNextLinkSessionRef.current = false;
+				dispatchMachineEvent({ type: "EXPAND_REQUESTED" });
+			}
 
 			const viewport = viewportRef.current;
 			const floatingEl = popoverRef.current;
@@ -866,6 +920,7 @@ export function LinkPopover({
 	// ── Listen for FOCUS_LINK_POPOVER_EVENT (selection-based flow) ──
 	useEffect(() => {
 		const onFocusRequest = () => {
+			expandNextLinkSessionRef.current = true;
 			dispatchMachineEvent({ type: "EXPAND_REQUESTED" });
 			queueMicrotask(() => {
 				if (!editor) return;
@@ -879,6 +934,7 @@ export function LinkPopover({
 						updateLinkMark(editor, link, href);
 						setHrefValue(href);
 						setActiveLink({ ...link, href, kind: "url", target: null });
+						dispatchMachineEvent({ type: "EXPAND_REQUESTED" });
 					})
 					.catch(() => {});
 			});
@@ -1173,6 +1229,18 @@ export function LinkPopover({
 		onMessage,
 	]);
 
+	const activeLinkTarget =
+		activeLink?.kind === "wiki" ? (activeLink.target ?? activeLink.href) : null;
+	const previewText = activeLink
+		? activeLink.kind === "wiki"
+			? wikiDisplayNameForTarget(activeLinkTarget ?? activeLink.href)
+			: activeLink.href
+		: creationHref;
+	const previewTitle = activeLink
+		? activeLink.kind === "wiki"
+			? (activeLinkTarget ?? activeLink.href)
+			: activeLink.href
+		: creationHref;
 	// ── Early return: nothing visible ───────────────────────────────
 	if (!editor) return null;
 	if (machineState.mode === "creating") {
@@ -1195,18 +1263,6 @@ export function LinkPopover({
 		"text-[9px] leading-[14px] tracking-[0.12em] text-muted-foreground/85";
 	const actionButtonClass =
 		"h-auto flex-1 rounded-none border-0 px-2 text-foreground shadow-none inset-shadow-none hover:bg-muted";
-	const activeLinkTarget =
-		activeLink?.kind === "wiki" ? (activeLink.target ?? activeLink.href) : null;
-	const previewText = activeLink
-		? activeLink.kind === "wiki"
-			? wikiDisplayNameForTarget(activeLinkTarget ?? activeLink.href)
-			: activeLink.href
-		: creationHref;
-	const previewTitle = activeLink
-		? activeLink.kind === "wiki"
-			? (activeLinkTarget ?? activeLink.href)
-			: activeLink.href
-		: creationHref;
 	const suggestionList =
 		wikiSuggestions.length > 0 ? (
 			<div
@@ -1273,42 +1329,50 @@ export function LinkPopover({
 				</div>
 			) : machineState.mode === "preview" ? (
 				<div className="flex justify-center">
-					<Button
+					<div
 						ref={previewButtonRef}
-						variant="outline"
-						size="sm"
 						className={cn(
-							"group relative h-7 min-w-0 justify-start gap-0 overflow-hidden border-border bg-card px-0 text-left hover:bg-muted",
+							"group flex h-7 min-w-0 overflow-hidden rounded-[var(--radius-popover)] border border-border bg-card shadow-xs",
 							styles.previewButton,
 						)}
-						onClick={() => {
-							if (!activeLink) return;
-							void visitActiveLink(
-								activeLink,
-								onOpenExternalLink,
-								onOpenWikiLink,
-								onMessage,
-							);
-						}}
 					>
-						<span
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
 							title={previewTitle}
-							className="min-w-0 flex-1 overflow-hidden px-2.5 py-[5px] pr-3 text-[11px] leading-[16px] text-foreground whitespace-nowrap [mask-image:linear-gradient(to_right,black_84%,transparent)] [-webkit-mask-image:linear-gradient(to_right,black_84%,transparent)]"
+							className="relative h-full min-w-0 flex-1 justify-start rounded-none border-0 py-[5px] ps-2 pe-2 text-left text-[11px] leading-[16px] text-foreground shadow-none inset-shadow-none transition-[padding] duration-[var(--default-transition-duration)] ease-snappy hover:bg-muted group-hover:pe-7"
+							onClick={() => dispatchMachineEvent({ type: "EXPAND_REQUESTED" })}
 						>
-							{previewText}
-						</span>
-						<span
-							aria-label="Edit link"
-							className="absolute inset-y-0 right-[42px] flex w-8 items-center justify-center bg-linear-to-l from-card via-card/95 to-transparent text-muted-foreground opacity-0 transition-opacity duration-[var(--default-transition-duration)] ease-snappy group-hover:opacity-100 hover:text-foreground"
+							<PreviewLabel key={previewText} text={previewText} />
+							<span
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-block-0 end-0 z-10 hidden w-6 bg-card group-hover:block group-hover:bg-muted"
+							/>
+							<MingcutePencilFill
+								aria-hidden="true"
+								className="absolute end-1.5 z-20 h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-[var(--default-transition-duration)] ease-snappy group-hover:opacity-100"
+							/>
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							aria-label="Open link"
+							className="h-full w-9 shrink-0 rounded-none border-0 bg-primary px-0 text-primary-foreground shadow-none inset-shadow-none hover:bg-primary/90 hover:text-primary-foreground"
+							onClick={() => {
+								if (!activeLink) return;
+								void visitActiveLink(
+									activeLink,
+									onOpenExternalLink,
+									onOpenWikiLink,
+									onMessage,
+								);
+							}}
 						>
-							<MingcutePencilFill className="h-3 w-3" />
-						</span>
-						<span className="relative flex h-full w-[42px] shrink-0 items-center justify-center overflow-hidden border-s border-border bg-primary text-primary-foreground">
-							<span className="absolute inset-0 flex items-center justify-center">
-								↗
-							</span>
-						</span>
-					</Button>
+							↗
+						</Button>
+					</div>
 				</div>
 			) : (
 				<div className="w-full overflow-hidden rounded-[var(--radius-popover)] border border-border bg-popover shadow-overlay">

@@ -1,3 +1,4 @@
+import { wikiDisplayNameForTarget } from "@hubble.md/editor";
 import { EditorView as SharedEditorView, type WikiTarget } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import {
@@ -38,10 +39,4 @@ export function EditorView({ path, initialMarkdown }: Props) {
 			onOpenWikiLink={(target) => void loadPath(target.split("#")[0] ?? target)}
 		/>
 	);
-}
-
-function wikiDisplayNameForTarget(target: string) {
-	const withoutHeading = target.split("#")[0] || target;
-	const fileName = withoutHeading.split(/[\\/]/).pop() || withoutHeading;
-	return fileName.replace(/\.(md|markdown|mdown)$/i, "");
 }

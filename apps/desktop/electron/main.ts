@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { hasMarkdownExtension, withMarkdownExtension } from "@hubble.md/editor";
 import embedTheme from "@hubble.md/runtime/embed-theme.css?raw";
 import hubbleRuntime from "@hubble.md/runtime/global.js?raw";
 import tailwindRuntime from "@tailwindcss/browser?raw";
@@ -216,7 +217,7 @@ function isIgnoredByRules(candidatePath: string, rules: IgnoreRule[]) {
 }
 
 function isMarkdownPath(candidatePath: string): boolean {
-	return /\.(md|markdown|mdown)$/i.test(candidatePath);
+	return hasMarkdownExtension(candidatePath);
 }
 
 /** Covers Git ignore config files: .gitignore and .ignore. */
@@ -891,9 +892,7 @@ function registerIpc() {
 				filters: [{ name: "Markdown", extensions: ["md"] }],
 			});
 			if (result.canceled || !result.filePath) return null;
-			const selected = result.filePath.endsWith(".md")
-				? result.filePath
-				: `${result.filePath}.md`;
+			const selected = withMarkdownExtension(result.filePath);
 			grantFileWithParent(selected);
 			return selected;
 		},

@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core";
 import {
-	TextSelection,
 	type EditorState,
+	TextSelection,
 	type Transaction,
 } from "@tiptap/pm/state";
 export const FOCUS_LINK_POPOVER_EVENT = "hubble:focus-link-popover";

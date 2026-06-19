@@ -31,6 +31,12 @@ export {
 	getCaretFormattingState,
 	MarkdownRolloverExtension,
 } from "./MarkdownRolloverExtension";
+export {
+	hasMarkdownExtension,
+	stripMarkdownExtension,
+	wikiDisplayNameForTarget,
+	withMarkdownExtension,
+} from "./markdownPath";
 export { markdownToTiptapDoc } from "./markdownToProsemirror";
 export { tiptapDocToMarkdown } from "./prosemirrorToMarkdown";
 export { StoredMarksDecorationExtension } from "./StoredMarksDecorationExtension";

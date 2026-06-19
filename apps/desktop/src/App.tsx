@@ -1,3 +1,4 @@
+import { wikiDisplayNameForTarget } from "@hubble.md/editor";
 import { Button, EditorView, type WikiTarget } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
@@ -16,6 +17,7 @@ import { createEmbedExtension } from "./editor/EmbedExtension";
 import { handleImageDrop, handleImagePaste } from "./editor/handleImagePaste";
 import { createImageExtension } from "./editor/ImageExtension";
 import { createMarkdownFile } from "./fileActions";
+import { resolveWikiPath } from "./lib/wikiPath";
 import { SIDEBAR_NAV_SELECTOR } from "./selectors";
 import {
 	forceKeepLocalEdits,
@@ -432,7 +434,15 @@ function MarkdownEditor({
 			onSave={savePathContent}
 			onScrollContainerChange={onScrollContainerChange}
 			onOpenExternalLink={desktopApi.openExternalUrl}
-			onOpenWikiLink={(target) => void loadPath(resolveWikiPath(target))}
+			onOpenWikiLink={(target) =>
+				void loadPath(
+					resolveWikiPath({
+						target,
+						files: workspace.files,
+						workspacePath: workspace.workspacePath,
+					}),
+				)
+			}
 			onMessage={(message, kind) =>
 				kind === "success" ? toast.success(message) : toast.error(message)
 			}
@@ -446,18 +456,6 @@ function relativeWorkspacePath(path: string, workspacePath: string | null) {
 		? workspacePath
 		: `${workspacePath}/`;
 	return path.startsWith(prefix) ? path.slice(prefix.length) : path;
-}
-
-function resolveWikiPath(target: string) {
-	if (target.startsWith("/")) return target;
-	const workspacePath = workspaceStore.get().workspacePath;
-	return workspacePath ? `${workspacePath}/${target.split("#")[0]}` : target;
-}
-
-function wikiDisplayNameForTarget(target: string) {
-	const withoutHeading = target.split("#")[0] || target;
-	const fileName = withoutHeading.split(/[\\/]/).pop() || withoutHeading;
-	return fileName.replace(/\.(md|markdown|mdown)$/i, "");
 }
 
 export default App;

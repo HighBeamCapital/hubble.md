@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import type { LinkAttrs } from "./Link";
+import { wikiDisplayNameForTarget } from "./markdownPath";
 
 /**
  * Convert TipTap JSONContent (ProseMirror document) -> Markdown string
@@ -222,12 +223,6 @@ function inlineToMarkdown(nodes: JSONContent[]): string {
 		i = j;
 	}
 	return result;
-}
-
-function wikiDisplayNameForTarget(target: string) {
-	const withoutHeading = target.split("#")[0] || target;
-	const fileName = withoutHeading.split("/").pop() || withoutHeading;
-	return fileName.replace(/\.(md|markdown|mdown)$/i, "");
 }
 
 function escapeWikiAlias(alias: string) {
