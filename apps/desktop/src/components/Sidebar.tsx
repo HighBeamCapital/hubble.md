@@ -12,6 +12,7 @@ import {
 	renameMarkdownFile,
 	setSidebarOpen,
 	setSortMode,
+	togglePinnedNote,
 } from "../store/actions";
 import {
 	currentPathStore,
@@ -24,7 +25,8 @@ export function Sidebar({ footer }: { footer?: ReactNode }) {
 	const workspace = useStoreValue(workspaceStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const currentPath = useStoreValue(currentPathStore);
-	const { workspacePath, files, sortMode } = workspace;
+	const { workspacePath, files, pinnedNotes, sortMode } = workspace;
+	const pinnedSet = new Set(pinnedNotes);
 
 	if (!sidebarOpen) return null;
 	const collapseSidebar = () => setSidebarOpen(false);
@@ -70,6 +72,7 @@ export function Sidebar({ footer }: { footer?: ReactNode }) {
 			files={files.map((file) => ({
 				path: file.path,
 				modifiedAt: file.modified_at,
+				pinned: pinnedSet.has(file.path),
 			}))}
 			currentPath={currentPath ?? null}
 			sortMode={sortMode}
@@ -87,6 +90,7 @@ export function Sidebar({ footer }: { footer?: ReactNode }) {
 			revealLabel={revealFileLabel(desktopApi.platform)}
 			onRenameFile={(path, nextName) => void renameMarkdownFile(path, nextName)}
 			onDeleteFile={(path) => void deleteMarkdownFile(path)}
+			onTogglePinnedFile={(path) => void togglePinnedNote(path)}
 			onCreateFile={(folderId) =>
 				createMarkdownFileInFolder(absolutePath(folderId))
 			}

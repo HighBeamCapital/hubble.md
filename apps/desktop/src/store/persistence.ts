@@ -6,6 +6,7 @@ type WorkspaceState = {
 	lastOpenedPaths: Record<string, string>;
 	sortMode: SortMode;
 	files: { path: string; modified_at: number }[];
+	pinnedNotes: string[];
 };
 
 type DocumentState = ReturnType<typeof emptyDoc>;
@@ -60,6 +61,7 @@ function hydrateWorkspace(ws: Persisted["workspace"]): WorkspaceState {
 				: {},
 		sortMode: ws?.sortMode === "alpha" ? "alpha" : "recent",
 		files: [],
+		pinnedNotes: [],
 	};
 }
 

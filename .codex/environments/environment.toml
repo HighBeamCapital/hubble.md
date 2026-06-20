@@ -9,6 +9,26 @@ set -eu
 SOURCE_REPO="${HUBBLE_ENV_SOURCE_REPO:-/Users/benholmes/Projects/hubble.md}"
 WORKTREE="${CODEX_WORKTREE_PATH:-$(git rev-parse --show-toplevel)}"
 
+sync_remote_branches() {
+  if ! git -C "$SOURCE_REPO" fetch origin --prune; then
+    echo "warning: failed to fetch origin; skipping branch sync" >&2
+    return
+  fi
+
+  git -C "$SOURCE_REPO" for-each-ref --format='%(refname)' refs/remotes/origin |
+    while IFS= read -r remote_ref; do
+      branch=${remote_ref#refs/remotes/origin/}
+
+      if [ "$branch" = "HEAD" ] || git -C "$SOURCE_REPO" show-ref --verify --quiet "refs/heads/$branch"; then
+        continue
+      fi
+
+      git -C "$SOURCE_REPO" branch --track "$branch" "origin/$branch"
+    done
+}
+
+sync_remote_branches
+
 cd "$WORKTREE"
 
 find "$SOURCE_REPO" \

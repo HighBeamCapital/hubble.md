@@ -16,6 +16,8 @@ import MingcuteDeleteLine from "~icons/mingcute/delete-line";
 import MingcuteEditLine from "~icons/mingcute/edit-line";
 import MingcuteFolderOpenLine from "~icons/mingcute/folder-open-line";
 import MingcuteMore2Line from "~icons/mingcute/more-2-line";
+import MingcutePinFill from "~icons/mingcute/pin-fill";
+import MingcutePinLine from "~icons/mingcute/pin-line";
 import MingcuteRightLine from "~icons/mingcute/right-line";
 import MingcuteSortDescendingLine from "~icons/mingcute/sort-descending-line";
 import {
@@ -42,7 +44,9 @@ const sidebarActionClass =
 const sidebarActionIconClass =
 	"inline-flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5";
 const sidebarRowContentClass =
-	"flex min-w-0 flex-1 items-center gap-1 [padding-block:var(--row-pad-block)] [padding-inline-end:var(--row-pad-inline)] text-start text-[length:var(--font-size-sidebar)]";
+	"flex min-w-0 flex-1 items-center gap-1 [padding-block:var(--row-pad-block)] [padding-inline-end:1.25rem] text-start text-[length:var(--font-size-sidebar)]";
+const sidebarRowActionButtonClass =
+	"inline-flex size-5 shrink-0 items-center justify-center rounded-sm border border-transparent bg-transparent text-muted-foreground/70 opacity-0 outline-hidden transition-[opacity,color] hover:text-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/40 group-hover/sidebar-row:opacity-100 aria-expanded:text-foreground aria-expanded:opacity-100";
 const DEFAULT_SIDEBAR_WIDTH = 220;
 const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 360;
@@ -67,6 +71,7 @@ export function Sidebar({
 	revealLabel,
 	onRenameFile,
 	onDeleteFile,
+	onTogglePinnedFile,
 	onCreateFile,
 	onDeleteFolder,
 }: {
@@ -88,6 +93,7 @@ export function Sidebar({
 	revealLabel?: string;
 	onRenameFile?: (path: string, nextName: string) => void;
 	onDeleteFile?: (path: string) => void;
+	onTogglePinnedFile?: (path: string) => void;
 	onCreateFile?: (folderId: string | null) => Promise<string | null>;
 	onDeleteFolder?: (folderId: string) => void;
 }) {
@@ -145,13 +151,14 @@ export function Sidebar({
 	const activateRow = useCallback(
 		(row: SidebarRow) => {
 			if (row.kind === "file") onSelectFile(row.file.path);
-			else toggleFolder(row.id);
+			else if (row.kind === "folder") toggleFolder(row.id);
 		},
 		[onSelectFile, toggleFolder],
 	);
 	const enterRowEdit = useCallback(
 		(row: SidebarRow) => {
 			if (row.kind === "file" && onRenameFile) beginRename(row.file, row.label);
+			else if (row.kind === "section") return;
 			else activateRow(row);
 		},
 		[activateRow, beginRename, onRenameFile],
@@ -328,6 +335,23 @@ export function Sidebar({
 					const isFocused = focusedIndex === index;
 					const isRenaming =
 						row.kind === "file" && row.file.path === renamingPath;
+					const isPinnedFile = row.kind === "file" && row.file.pinned;
+					const canTogglePinnedFile = isPinnedFile && onTogglePinnedFile;
+					const isPinnedSectionEnd =
+						isPinnedFile && rows[index + 1]?.kind !== "file";
+					if (row.kind === "section") {
+						return (
+							<div
+								key={row.id}
+								role="presentation"
+								data-sidebar-index={index}
+								className="flex items-center gap-1 px-2 pb-1 pt-2 text-[10px] font-medium uppercase text-muted-foreground"
+							>
+								<MingcutePinFill className="size-3 shrink-0" />
+								{row.label}
+							</div>
+						);
+					}
 					const rowStyle = {
 						paddingInlineStart: `${0.5 + row.depth * 0.75}rem`,
 					} as React.CSSProperties;
@@ -352,11 +376,12 @@ export function Sidebar({
 							aria-expanded={row.kind === "folder" ? row.expanded : undefined}
 							aria-selected={isActive}
 							className={cn(
-								"group/sidebar-row flex w-full items-center rounded-[var(--radius-row)] text-sidebar-foreground",
+								"group/sidebar-row relative flex w-full items-center rounded-[var(--radius-row)] text-sidebar-foreground",
 								!isActive && isFocused && "bg-accent",
 								isActive &&
 									"bg-sidebar-accent text-sidebar-accent-foreground font-medium",
 								isRenaming && "relative z-30",
+								isPinnedSectionEnd && "mb-3",
 							)}
 							onPointerEnter={() => setFocusedIndex(index)}
 							onPointerLeave={() => setFocusedIndex(null)}
@@ -426,39 +451,76 @@ export function Sidebar({
 									}}
 								>
 									{chevron}
-									<span className="min-w-0 flex-1 truncate">{row.label}</span>
+									<span
+										className={cn(
+											"min-w-0 flex-1 truncate",
+											isPinnedFile && "[direction:rtl] [text-align:left]",
+										)}
+									>
+										{row.label}
+									</span>
 								</button>
 							)}
-							{row.kind === "folder" &&
-								(onRevealFolder || onCreateFile || onDeleteFolder) && (
-									<FolderActionsMenu
-										id={row.id}
-										label={row.label}
-										open={openActionsPath === row.id}
-										onOpenChange={(open) =>
-											setOpenActionsPath(open ? row.id : null)
-										}
-										onRevealFolder={onRevealFolder}
-										revealLabel={revealLabel}
-										onCreateFile={(id) => void createFile(id)}
-										onDeleteFolder={onDeleteFolder}
-									/>
+							{canTogglePinnedFile && (
+								<span
+									className={cn(
+										"pointer-events-none absolute inset-y-0 end-0 w-16 rounded-e-[var(--radius-row)] opacity-0 transition-opacity group-hover/sidebar-row:opacity-100",
+										isActive
+											? "bg-linear-to-r from-transparent from-0% via-sidebar-accent via-25% to-sidebar-accent"
+											: "bg-linear-to-r from-transparent from-0% via-accent via-25% to-accent",
+									)}
+								/>
+							)}
+							<div className="absolute inset-y-0 end-0.5 flex items-center gap-0.5">
+								{row.kind === "folder" &&
+									(onRevealFolder || onCreateFile || onDeleteFolder) && (
+										<FolderActionsMenu
+											id={row.id}
+											label={row.label}
+											open={openActionsPath === row.id}
+											onOpenChange={(open) =>
+												setOpenActionsPath(open ? row.id : null)
+											}
+											onRevealFolder={onRevealFolder}
+											revealLabel={revealLabel}
+											onCreateFile={(id) => void createFile(id)}
+											onDeleteFolder={onDeleteFolder}
+										/>
+									)}
+								{canTogglePinnedFile && (
+									<button
+										type="button"
+										className={sidebarRowActionButtonClass}
+										aria-label="Unpin"
+										title="Unpin"
+										onClick={(event) => {
+											event.stopPropagation();
+											onTogglePinnedFile(row.file.path);
+										}}
+									>
+										<MingcutePinFill className="size-3.5" />
+									</button>
 								)}
-							{row.kind === "file" &&
-								(onRevealFile || onRenameFile || onDeleteFile) && (
-									<FileActionsMenu
-										file={row.file}
-										label={row.label}
-										open={openActionsPath === row.file.path}
-										onOpenChange={(open) =>
-											setOpenActionsPath(open ? row.file.path : null)
-										}
-										onRevealFile={onRevealFile}
-										revealLabel={revealLabel}
-										onRenameFile={beginRename}
-										onDeleteFile={onDeleteFile}
-									/>
-								)}
+								{row.kind === "file" &&
+									(onRevealFile ||
+										onRenameFile ||
+										onDeleteFile ||
+										onTogglePinnedFile) && (
+										<FileActionsMenu
+											file={row.file}
+											label={row.label}
+											open={openActionsPath === row.file.path}
+											onOpenChange={(open) =>
+												setOpenActionsPath(open ? row.file.path : null)
+											}
+											onRevealFile={onRevealFile}
+											revealLabel={revealLabel}
+											onRenameFile={beginRename}
+											onTogglePinnedFile={onTogglePinnedFile}
+											onDeleteFile={onDeleteFile}
+										/>
+									)}
+							</div>
 						</div>
 					);
 				})}
@@ -690,6 +752,7 @@ function FileActionsMenu({
 	onRevealFile,
 	revealLabel,
 	onRenameFile,
+	onTogglePinnedFile,
 	onDeleteFile,
 }: {
 	file: SidebarFile;
@@ -699,6 +762,7 @@ function FileActionsMenu({
 	onRevealFile?: (path: string) => void;
 	revealLabel?: string;
 	onRenameFile?: (file: SidebarFile, label: string) => void;
+	onTogglePinnedFile?: (path: string) => void;
 	onDeleteFile?: (path: string) => void;
 }) {
 	return (
@@ -717,6 +781,14 @@ function FileActionsMenu({
 					onClick={() => onRenameFile(file, label)}
 				>
 					Rename
+				</ActionItem>
+			)}
+			{onTogglePinnedFile && (
+				<ActionItem
+					icon={<MingcutePinLine />}
+					onClick={() => onTogglePinnedFile(file.path)}
+				>
+					{file.pinned ? "Unpin" : "Pin"}
 				</ActionItem>
 			)}
 			{onDeleteFile && (
@@ -752,7 +824,7 @@ function ActionsMenu({
 				render={
 					<button
 						type="button"
-						className="me-1 inline-flex size-6 shrink-0 items-center justify-center rounded-sm border border-transparent bg-transparent text-muted-foreground/70 opacity-0 outline-hidden transition-[opacity,color] hover:text-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/40 group-hover/sidebar-row:opacity-100 aria-expanded:text-foreground aria-expanded:opacity-100"
+						className={sidebarRowActionButtonClass}
 						aria-label={`Actions for ${label}`}
 						title={`Actions for ${label}`}
 						onContextMenu={(event) => {

@@ -6,6 +6,7 @@ export type SidebarSortMode = "alpha" | "recent";
 export type SidebarFile = {
 	path: string;
 	modifiedAt?: number;
+	pinned?: boolean;
 };
 
 type FolderNode = {
@@ -17,6 +18,12 @@ type FolderNode = {
 };
 
 export type SidebarRow =
+	| {
+			kind: "section";
+			id: string;
+			label: string;
+			depth: number;
+	  }
 	| {
 			kind: "folder";
 			id: string;
@@ -89,8 +96,15 @@ export function useSidebarTree({
 		[highlightPath, getDisplayPath],
 	);
 	const rows = useMemo(
-		() => flattenTree(tree, sortMode, expandedFolders),
-		[tree, sortMode, expandedFolders],
+		() =>
+			flattenRows({
+				files,
+				getDisplayPath,
+				tree,
+				sortMode,
+				expandedFolders,
+			}),
+		[expandedFolders, files, getDisplayPath, sortMode, tree],
 	);
 
 	useEffect(() => {
@@ -192,13 +206,35 @@ function buildFileTree(
 	return root;
 }
 
-function flattenTree(
-	root: FolderNode,
-	sortMode: SidebarSortMode,
-	expandedFolders: Set<string>,
-): SidebarRow[] {
+function flattenRows({
+	files,
+	getDisplayPath,
+	tree,
+	sortMode,
+	expandedFolders,
+}: {
+	files: SidebarFile[];
+	getDisplayPath: (path: string) => string;
+	tree: FolderNode;
+	sortMode: SidebarSortMode;
+	expandedFolders: Set<string>;
+}): SidebarRow[] {
 	const rows: SidebarRow[] = [];
-	appendFolderChildren(root, 0, sortMode, expandedFolders, rows);
+	const pinnedFiles = files
+		.filter((file) => file.pinned)
+		.sort((a, b) => compareFiles(a, b, sortMode));
+	if (pinnedFiles.length > 0) {
+		rows.push({ kind: "section", id: "pinned", label: "Pinned", depth: 0 });
+		for (const file of pinnedFiles) {
+			rows.push({
+				kind: "file",
+				file,
+				label: normalizeDisplayPath(getDisplayPath(file.path)),
+				depth: 0,
+			});
+		}
+	}
+	appendFolderChildren(tree, 0, sortMode, expandedFolders, rows);
 	return rows;
 }
 
@@ -236,6 +272,7 @@ function appendFolderChildren(
 	}
 
 	for (const file of files) {
+		if (file.pinned) continue;
 		rows.push({
 			kind: "file",
 			file,

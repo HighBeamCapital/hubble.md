@@ -1,0 +1,88 @@
+name: Bug Report
+description: Report a Hubble behavior that is broken or unexpected.
+labels: ["bug", "needs-triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the broken behavior you observed.
+      placeholder: Tell us what you saw and why it seems wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Clear reproduction steps help us prioritize and fix the bug.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: Describe the behavior you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+      description: Add details that clarify the failure mode, including errors or surprising state changes.
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, videos, logs, or notes
+      description: Optional, but helpful for reproducing the issue quickly.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Find the Hubble version under Settings (⌘,)
+    validations:
+      required: false
+  - type: dropdown
+    id: blocker
+    attributes:
+      label: Does this block your work?
+      multiple: false
+      options:
+        - "No"
+        - "Partially — I have a workaround"
+        - "Yes — I cannot keep working without a fix"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Optional. Add any checks that would prove this is fixed.
+      placeholder: |
+        - [ ] The broken behavior is reproducible before the fix
+        - [ ] The expected behavior works after the fix
+        - [ ] The fix is covered by an appropriate test or explicit verification step
+    validations:
+      required: false
+  - type: textarea
+    id: blocked-by
+    attributes:
+      label: Blocked by
+      description: Link any issues that must be resolved first, or leave the default.
+      value: None - can start immediately
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Add links to related issues, notes, user stories, or prior decisions.
+    validations:
+      required: false

@@ -18,7 +18,11 @@ import {
 } from "electron";
 import electronUpdater from "electron-updater";
 import ignore from "ignore";
-import type { DesktopUpdateState } from "../src/desktopApi/types";
+import { z } from "zod/v4";
+import type {
+	DesktopUpdateState,
+	WorkspaceConfig,
+} from "../src/desktopApi/types";
 import {
 	hasMarkdownExtension,
 	withMarkdownExtension,
@@ -97,6 +101,22 @@ let grantsLoaded = false;
 
 const ignoreConfigFiles = [".gitignore", ".ignore"];
 const ignoredWorkspaceDirs = new Set([".git", "dist", "node_modules"]);
+const workspaceConfigVersion = 1;
+const workspaceConfigDir = ".hubble";
+const workspaceConfigFile = "config.json";
+const workspaceConfigSchema = z.object({
+	version: z.literal(workspaceConfigVersion),
+	pinnedNotes: z.array(
+		z
+			.string()
+			.min(1)
+			// Pin refs live inside the workspace config; reject absolute paths and
+			// traversal so config edits cannot point pin state outside the workspace.
+			.refine(
+				(note) => !path.isAbsolute(note) && !note.split("/").includes(".."),
+			),
+	),
+});
 const iframeHeadStyles = [
 	{ name: "hubble-theme", source: embedTheme },
 ] as const;
@@ -111,6 +131,32 @@ const iframeBodyEndScripts = [
 
 function grantsPath(): string {
 	return path.join(app.getPath("userData"), "grants.json");
+}
+
+function workspaceConfigPath(workspacePath: string): string {
+	const root = assertGrantedRoot(workspacePath);
+	return path.join(root, workspaceConfigDir, workspaceConfigFile);
+}
+
+function emptyWorkspaceConfig(): WorkspaceConfig {
+	return { version: workspaceConfigVersion, pinnedNotes: [] };
+}
+
+function parseWorkspaceConfig(raw: string): WorkspaceConfig {
+	try {
+		return workspaceConfigSchema.parse(JSON.parse(raw));
+	} catch {
+		return emptyWorkspaceConfig();
+	}
+}
+
+function normalizeWorkspaceConfig(input: WorkspaceConfig): WorkspaceConfig {
+	const config = workspaceConfigSchema.safeParse(input);
+	if (!config.success) return emptyWorkspaceConfig();
+	return {
+		version: workspaceConfigVersion,
+		pinnedNotes: [...new Set(config.data.pinnedNotes)],
+	};
 }
 
 async function loadGrants() {
@@ -223,12 +269,6 @@ function isMarkdownPath(candidatePath: string): boolean {
 	return hasMarkdownExtension(candidatePath);
 }
 
-/** Covers Git ignore config files: .gitignore and .ignore. */
-function isIgnoreConfigPath(candidatePath: string): boolean {
-	const name = path.basename(candidatePath);
-	return ignoreConfigFiles.includes(name);
-}
-
 function isMissingPathError(error: unknown): boolean {
 	return (
 		typeof error === "object" &&
@@ -253,24 +293,6 @@ async function rulesForDir(dir: string, inherited: IgnoreRule[]) {
 	}
 
 	return hasRules ? [...inherited, { dir, matcher }] : inherited;
-}
-
-async function collectWorkspaceIgnoreRules(
-	dir: string,
-	inherited: IgnoreRule[] = [],
-): Promise<IgnoreRule[]> {
-	const rules = await rulesForDir(dir, inherited);
-	const collected =
-		rules.length > inherited.length ? [rules[rules.length - 1]] : [];
-
-	const entries = await fs.readdir(dir, { withFileTypes: true });
-	for (const entry of entries) {
-		if (!entry.isDirectory()) continue;
-		const entryPath = path.join(dir, entry.name);
-		if (isIgnoredByRules(entryPath, rules)) continue;
-		collected.push(...(await collectWorkspaceIgnoreRules(entryPath, rules)));
-	}
-	return collected;
 }
 
 function assertGranted(input: string): string {
@@ -421,6 +443,13 @@ function buildMenu() {
 					accelerator: "CmdOrCtrl+Shift+O",
 					enabled: menuState.hasWorkspace,
 					click: () => sendToRenderer("desktop:menu-show-workspace-switcher"),
+				},
+				{ type: "separator" },
+				{
+					id: "sync-workspace",
+					label: "Sync Workspace",
+					enabled: menuState.hasWorkspace,
+					click: () => sendToRenderer("desktop:menu-sync-workspace"),
 				},
 				{ type: "separator" },
 				{ role: "close" },
@@ -720,6 +749,8 @@ async function createWindow() {
 		},
 	});
 
+	mainWindow.on("focus", () => sendToRenderer("desktop:window-focus"));
+
 	if (isDev && process.env.ELECTRON_RENDERER_URL) {
 		await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
 	} else {
@@ -750,6 +781,40 @@ function registerIpc() {
 			const files: EmbedFileEntry[] = [];
 			await collectWorkspaceFiles(root, root, String(glob ?? "**/*"), files);
 			return files.sort((a, b) => a.path.localeCompare(b.path));
+		},
+	);
+
+	ipcMain.handle(
+		"desktop:read-workspace-config",
+		async (_event, { workspacePath }) => {
+			try {
+				return parseWorkspaceConfig(
+					await fs.readFile(workspaceConfigPath(workspacePath), "utf8"),
+				);
+			} catch (err) {
+				if (
+					err &&
+					typeof err === "object" &&
+					"code" in err &&
+					err.code === "ENOENT"
+				) {
+					return emptyWorkspaceConfig();
+				}
+				throw err;
+			}
+		},
+	);
+
+	ipcMain.handle(
+		"desktop:write-workspace-config",
+		async (_event, { workspacePath, config }) => {
+			const configPath = workspaceConfigPath(workspacePath);
+			await fs.mkdir(path.dirname(configPath), { recursive: true });
+			await fs.writeFile(
+				configPath,
+				`${JSON.stringify(normalizeWorkspaceConfig(config), null, 2)}\n`,
+			);
+			grantFile(configPath);
 		},
 	);
 
@@ -903,7 +968,7 @@ function registerIpc() {
 
 	ipcMain.handle(
 		"desktop:watch-path",
-		async (_event, { watchId, path: watchPath, options }) => {
+		async (_event, { watchId, path: watchPath }) => {
 			const id = String(watchId);
 			const resolved = assertGranted(watchPath);
 			const emit = (changedPath: string) => {
@@ -912,35 +977,16 @@ function registerIpc() {
 				]);
 			};
 
-			const replaceWatcher = async (currentWatcher: FSWatcher) => {
-				await currentWatcher.close();
-				if (watchers.get(id) !== currentWatcher) return;
-				const next = await createWatcher();
-				if (watchers.get(id) === currentWatcher) {
-					watchers.set(id, next);
-				} else {
-					await next.close();
-				}
-			};
-
 			const createWatcher = async () => {
-				const ignoreRules = options?.recursive
-					? await collectWorkspaceIgnoreRules(resolved)
-					: [];
 				const watcher = chokidar.watch(resolved, {
 					ignoreInitial: true,
-					depth: options?.recursive ? undefined : 0,
-					ignored: options?.recursive
-						? (path) => isIgnoredByRules(path, ignoreRules)
-						: undefined,
+					// Only the active file uses this watcher. The sidebar refreshes from
+					// snapshots so large workspaces do not create one watcher per folder.
+					depth: 0,
 				});
-				/** Changes to .ignore or .gitignore files can change which markdown files should be indexed. Replace the watcher in this case. */
 				const emitFile = (changedPath: string) => {
 					if (isMarkdownPath(changedPath)) {
 						emit(changedPath);
-					} else if (isIgnoreConfigPath(changedPath)) {
-						emit(changedPath);
-						void replaceWatcher(watcher);
 					}
 				};
 				watcher.on("add", emitFile);
@@ -949,7 +995,7 @@ function registerIpc() {
 				watcher.on("addDir", emit);
 				watcher.on("unlinkDir", emit);
 				watcher.on("error", (error) => {
-					console.error("Workspace watcher failed:", error);
+					console.error("File watcher failed:", error);
 				});
 				return watcher;
 			};

@@ -19,6 +19,13 @@ const desktopApi = {
 		ipcRenderer.invoke("desktop:list-directory", { path }),
 	listEmbedFiles: (workspacePath, glob) =>
 		ipcRenderer.invoke("desktop:embed-list-files", { workspacePath, glob }),
+	readWorkspaceConfig: (workspacePath) =>
+		ipcRenderer.invoke("desktop:read-workspace-config", { workspacePath }),
+	writeWorkspaceConfig: (workspacePath, config) =>
+		ipcRenderer.invoke("desktop:write-workspace-config", {
+			workspacePath,
+			config,
+		}),
 	readFileText: (path) =>
 		ipcRenderer.invoke("desktop:read-file-text", { path }),
 	writeFileText: (path, content) =>
@@ -76,6 +83,9 @@ const desktopApi = {
 		subscribe("desktop:menu-open-settings", callback),
 	onMenuShowWorkspaceSwitcher: (callback) =>
 		subscribe("desktop:menu-show-workspace-switcher", callback),
+	onMenuSyncWorkspace: (callback) =>
+		subscribe("desktop:menu-sync-workspace", callback),
+	onWindowFocus: (callback) => subscribe("desktop:window-focus", callback),
 } satisfies DesktopApi;
 
 contextBridge.exposeInMainWorld("desktopApi", desktopApi);
