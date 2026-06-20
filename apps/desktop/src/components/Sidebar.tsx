@@ -8,6 +8,7 @@ import {
 	deleteFolder,
 	deleteMarkdownFile,
 	loadPath,
+	moveSidebarItem,
 	openWorkspace,
 	renameMarkdownFile,
 	setSidebarOpen,
@@ -95,6 +96,9 @@ export function Sidebar({ footer }: { footer?: ReactNode }) {
 				createMarkdownFileInFolder(absolutePath(folderId))
 			}
 			onDeleteFolder={(folderId) => void deleteFolder(absolutePath(folderId))}
+			onMoveItem={({ item, targetFolderId }) =>
+				void moveSidebarItem(item, absolutePath(targetFolderId))
+			}
 		/>
 	);
 }

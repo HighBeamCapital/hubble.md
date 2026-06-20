@@ -3,6 +3,7 @@ export {
 	Sidebar,
 	type SidebarFile,
 	SidebarFrame,
+	type SidebarMoveItemInput,
 	type SidebarSortMode,
 } from "./components/Sidebar";
 export { NewNoteButton, Toolbar } from "./components/Toolbar";

@@ -30,6 +30,7 @@ export type SidebarRow =
 			label: string;
 			depth: number;
 			expanded: boolean;
+			segments: SidebarFolderSegment[];
 	  }
 	| {
 			kind: "file";
@@ -37,6 +38,11 @@ export type SidebarRow =
 			label: string;
 			depth: number;
 	  };
+
+export type SidebarFolderSegment = {
+	id: string;
+	name: string;
+};
 
 type ExpandedState = {
 	key: string | null;
@@ -185,12 +191,7 @@ function buildFileTree(
 		let parent = root;
 		const modifiedAt = file.modifiedAt ?? 0;
 		for (const segment of segments) {
-			const id = `${parent.id}${segment}/`;
-			let folder = parent.folders.get(segment);
-			if (!folder) {
-				folder = makeFolder(id, segment);
-				parent.folders.set(segment, folder);
-			}
+			const folder = ensureFolder(parent, segment);
 			folder.modifiedAt = Math.max(folder.modifiedAt, modifiedAt);
 			parent = folder;
 		}
@@ -204,6 +205,16 @@ function buildFileTree(
 	}
 
 	return root;
+}
+
+function ensureFolder(parent: FolderNode, name: string): FolderNode {
+	const id = `${parent.id}${name}/`;
+	let folder = parent.folders.get(name);
+	if (!folder) {
+		folder = makeFolder(id, name);
+		parent.folders.set(name, folder);
+	}
+	return folder;
 }
 
 function flattenRows({
@@ -259,6 +270,7 @@ function appendFolderChildren(
 			label: compacted.label,
 			depth,
 			expanded,
+			segments: compacted.segments,
 		});
 		if (expanded) {
 			appendFolderChildren(
@@ -286,8 +298,10 @@ function appendFolderChildren(
 function compactFolder(folder: FolderNode): {
 	folder: FolderNode;
 	label: string;
+	segments: SidebarFolderSegment[];
 } {
 	const names = [folder.name];
+	const segments = [{ id: folder.id, name: folder.name }];
 	let cursor = folder;
 	while (cursor.files.length === 0 && cursor.folders.size === 1) {
 		const onlyChild = cursor.folders.values().next().value as
@@ -295,9 +309,10 @@ function compactFolder(folder: FolderNode): {
 			| undefined;
 		if (!onlyChild) break;
 		names.push(onlyChild.name);
+		segments.push({ id: onlyChild.id, name: onlyChild.name });
 		cursor = onlyChild;
 	}
-	return { folder: cursor, label: names.join("/") };
+	return { folder: cursor, label: names.join("/"), segments };
 }
 
 function compareNodes(

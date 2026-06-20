@@ -1,7 +1,23 @@
 import { Menu } from "@base-ui/react/menu";
 import { Select } from "@base-ui/react/select";
 import {
+	type CollisionDetection,
+	DndContext,
+	type DragEndEvent,
+	type DragOverEvent,
+	DragOverlay,
+	type DragStartEvent,
+	type Modifier,
+	PointerSensor,
+	pointerWithin,
+	useDraggable,
+	useDroppable,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
 	type CSSProperties,
+	forwardRef,
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
 	type PointerEvent as ReactPointerEvent,
@@ -39,6 +55,11 @@ import {
 
 export type { SidebarFile, SidebarSortMode };
 
+export type SidebarMoveItemInput = {
+	item: { kind: "file"; path: string } | { kind: "folder"; folderId: string };
+	targetFolderId: string | null;
+};
+
 const sidebarActionClass =
 	"flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-start text-[11px] font-normal outline-hidden select-none";
 const sidebarActionIconClass =
@@ -52,6 +73,37 @@ const MIN_SIDEBAR_WIDTH = 180;
 const MAX_SIDEBAR_WIDTH = 360;
 const COLLAPSE_EDGE_DISTANCE = 24;
 const RESIZE_HANDLE_WIDTH = 10;
+const DRAG_EXPAND_DELAY_MS = 500;
+const DRAG_CHIP_OFFSET = 2;
+const SEGMENT_DROP = "sidebar-drop:segment:";
+const alignChipToCursor: Modifier = ({
+	activeNodeRect,
+	activatorEvent,
+	transform,
+}) => {
+	if (!activeNodeRect || !(activatorEvent instanceof MouseEvent))
+		return transform;
+	return {
+		...transform,
+		x:
+			transform.x +
+			activatorEvent.clientX -
+			activeNodeRect.left +
+			DRAG_CHIP_OFFSET,
+		y:
+			transform.y +
+			activatorEvent.clientY -
+			activeNodeRect.top +
+			DRAG_CHIP_OFFSET,
+	};
+};
+const segmentFirstCollision: CollisionDetection = (args) => {
+	const pointerCollisions = pointerWithin(args);
+	const segmentCollisions = pointerCollisions.filter((collision) =>
+		String(collision.id).startsWith(SEGMENT_DROP),
+	);
+	return segmentCollisions.length > 0 ? segmentCollisions : pointerCollisions;
+};
 
 export function Sidebar({
 	files,
@@ -74,6 +126,7 @@ export function Sidebar({
 	onTogglePinnedFile,
 	onCreateFile,
 	onDeleteFolder,
+	onMoveItem,
 }: {
 	files: SidebarFile[];
 	currentPath: string | null;
@@ -96,6 +149,7 @@ export function Sidebar({
 	onTogglePinnedFile?: (path: string) => void;
 	onCreateFile?: (folderId: string | null) => Promise<string | null>;
 	onDeleteFolder?: (folderId: string) => void;
+	onMoveItem?: (input: SidebarMoveItemInput) => Promise<void> | void;
 }) {
 	const navRef = useRef<HTMLDivElement>(null);
 	const renameInputRef = useRef<HTMLInputElement | null>(null);
@@ -108,6 +162,8 @@ export function Sidebar({
 		draft: string;
 	} | null>(null);
 	const [renameError, setRenameError] = useState<string | null>(null);
+	const [activeDragLabel, setActiveDragLabel] = useState<string | null>(null);
+	const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 	const highlightPath = pendingPath ?? currentPath;
 	const { collapseFolder, expandFolder, rows, toggleFolder } = useSidebarTree({
 		files,
@@ -116,6 +172,9 @@ export function Sidebar({
 		sortMode,
 		storageScope,
 	});
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+	);
 	const beginRename = useCallback(
 		(
 			file: SidebarFile,
@@ -187,6 +246,54 @@ export function Sidebar({
 		navRef,
 		activeIndex,
 	});
+	const handleDragStart = useCallback((event: DragStartEvent) => {
+		const data = event.active.data.current as DragItemData | undefined;
+		setActiveDragLabel(data?.label ?? null);
+	}, []);
+	const handleDragEnd = useCallback(
+		(event: DragEndEvent) => {
+			setActiveDragLabel(null);
+			setDropTarget(null);
+			if (!onMoveItem || !event.over) return;
+			const item = event.active.data.current as DragItemData | undefined;
+			const target = event.over.data.current as DropTargetData | undefined;
+			if (!item || !target) return;
+			const targetFolderId = target.folderId;
+			if (isInvalidMove(item, targetFolderId)) return;
+			void onMoveItem({
+				item:
+					item.kind === "file"
+						? { kind: "file", path: item.path }
+						: { kind: "folder", folderId: item.folderId },
+				targetFolderId,
+			});
+		},
+		[onMoveItem],
+	);
+	const handleDragOver = useCallback((event: DragOverEvent) => {
+		const target = event.over?.data.current as DropTargetData | undefined;
+		setDropTarget(
+			event.over
+				? { id: String(event.over.id), folderId: target?.folderId ?? null }
+				: null,
+		);
+	}, []);
+
+	useEffect(() => {
+		if (!activeDragLabel || !dropTarget?.folderId) return;
+		const targetRow = rows.find(
+			(row): row is Extract<SidebarRow, { kind: "folder" }> =>
+				row.kind === "folder" &&
+				!row.expanded &&
+				(row.id === dropTarget.folderId ||
+					row.segments.some((segment) => segment.id === dropTarget.folderId)),
+		);
+		if (!targetRow) return;
+		const timer = window.setTimeout(() => {
+			expandFolder(targetRow.id);
+		}, DRAG_EXPAND_DELAY_MS);
+		return () => window.clearTimeout(timer);
+	}, [activeDragLabel, dropTarget, expandFolder, rows]);
 
 	useEffect(() => {
 		if (!renamingPath) return;
@@ -264,6 +371,274 @@ export function Sidebar({
 		onRenameFile(path, nextName);
 	}, [getRenameError, onRenameFile, renameDraft, renamingPath, resetRename]);
 
+	const tree = (
+		<DndContext
+			collisionDetection={segmentFirstCollision}
+			sensors={sensors}
+			onDragStart={handleDragStart}
+			onDragOver={handleDragOver}
+			onDragEnd={handleDragEnd}
+			onDragCancel={() => {
+				setActiveDragLabel(null);
+				setDropTarget(null);
+			}}
+		>
+			<DroppableSidebarNav
+				ref={navRef}
+				enabled={Boolean(onMoveItem)}
+				onKeyDown={onKeyDown}
+			>
+				{rows.length === 0 && emptyState}
+				{rows.map((row, index) => {
+					const isActive =
+						row.kind === "file" && row.file.path === highlightPath;
+					const isFocused = focusedIndex === index;
+					const isRenaming =
+						row.kind === "file" && row.file.path === renamingPath;
+					const isPinnedFile = row.kind === "file" && row.file.pinned;
+					const canTogglePinnedFile = isPinnedFile && onTogglePinnedFile;
+					const isPinnedSectionEnd =
+						isPinnedFile && rows[index + 1]?.kind !== "file";
+					if (row.kind === "section") {
+						return (
+							<div
+								key={row.id}
+								role="presentation"
+								data-sidebar-index={index}
+								className="flex items-center gap-1 px-2 pb-1 pt-2 text-[10px] font-medium uppercase text-muted-foreground"
+							>
+								<MingcutePinFill className="size-3 shrink-0" />
+								{row.label}
+							</div>
+						);
+					}
+					const rowStyle = {
+						paddingInlineStart: `${0.5 + row.depth * 0.75}rem`,
+					} as React.CSSProperties;
+					const chevron = (
+						<span className="inline-flex size-3 shrink-0 items-center justify-center text-muted-foreground">
+							{row.kind === "folder" && (
+								<MingcuteRightLine
+									className={cn(
+										"size-3 transition-transform duration-150 ease-out",
+										row.expanded && "rotate-90",
+									)}
+								/>
+							)}
+						</span>
+					);
+					const dropGroup = dropTarget
+						? rowDropGroup({
+								target: dropTarget,
+								getDisplayPath,
+								index,
+								rows,
+							})
+						: null;
+					return (
+						<DraggableSidebarRow
+							key={row.kind === "folder" ? row.id : row.file.path}
+							enabled={Boolean(onMoveItem) && !isRenaming}
+							row={row}
+							getDisplayPath={getDisplayPath}
+						>
+							{({ attributes, isDragging, listeners, setNodeRef }) => (
+								<div
+									ref={setNodeRef}
+									role="treeitem"
+									tabIndex={-1}
+									data-sidebar-index={index}
+									aria-expanded={
+										row.kind === "folder" ? row.expanded : undefined
+									}
+									aria-selected={isActive}
+									className={cn(
+										"group/sidebar-row relative flex w-full items-center text-sidebar-foreground",
+										!isActive && isFocused && "bg-accent",
+										isActive &&
+											"bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+										dropGroup
+											? [
+													"bg-sidebar-accent/40",
+													dropGroup.start &&
+														"rounded-se-[var(--radius-row)] rounded-ss-[var(--radius-row)]",
+													dropGroup.end &&
+														"rounded-ee-[var(--radius-row)] rounded-es-[var(--radius-row)]",
+												]
+											: "rounded-[var(--radius-row)]",
+										isRenaming && "relative z-30",
+										isPinnedSectionEnd && "mb-3",
+										activeDragLabel && isActive && !dropGroup && "grayscale",
+										isDragging && "opacity-50",
+									)}
+									onPointerEnter={() => setFocusedIndex(index)}
+									onPointerLeave={() => setFocusedIndex(null)}
+									onContextMenu={(event) => {
+										if (
+											row.kind === "file" &&
+											!onRevealFile &&
+											!onRenameFile &&
+											!onDeleteFile
+										)
+											return;
+										if (
+											row.kind === "folder" &&
+											!onRevealFolder &&
+											!onCreateFile &&
+											!onDeleteFolder
+										)
+											return;
+										event.preventDefault();
+										setOpenActionsPath(
+											row.kind === "file" ? row.file.path : row.id,
+										);
+									}}
+									title={row.label}
+								>
+									{isRenaming ? (
+										<div
+											className={cn(sidebarRowContentClass, "overflow-visible")}
+											style={rowStyle}
+										>
+											{chevron}
+											<FileRenameInput
+												ref={renameInputRef}
+												value={renameDraft}
+												error={renameError}
+												onChange={(value) => {
+													setRenameDraft(value);
+													setRenameError(
+														row.kind === "file"
+															? getRenameError(row.file.path, value)
+															: null,
+													);
+												}}
+												onCancel={cancelRename}
+												onCommit={commitRename}
+											/>
+										</div>
+									) : (
+										<DroppableRowButton
+											row={row}
+											getDisplayPath={getDisplayPath}
+											enabled={Boolean(onMoveItem)}
+											className={cn(
+												sidebarRowContentClass,
+												"truncate border-none bg-transparent",
+											)}
+											style={rowStyle}
+											onClick={(event) => {
+												if (row.kind === "file" && event.detail > 1) return;
+												activateRow(row);
+												requestAnimationFrame(() => navRef.current?.focus());
+											}}
+											onDoubleClick={(event) => {
+												if (row.kind !== "file" || !onRenameFile) return;
+												event.preventDefault();
+												beginRename(row.file, row.label);
+											}}
+											dragAttributes={attributes}
+											dragListeners={listeners}
+										>
+											{chevron}
+											{row.kind === "folder" ? (
+												<FolderSegmentLabel
+													dropTarget={dropTarget}
+													row={row}
+													enabled={Boolean(onMoveItem)}
+												/>
+											) : (
+												<span
+													className={cn(
+														"min-w-0 flex-1 truncate",
+														isPinnedFile && "[direction:rtl] [text-align:left]",
+													)}
+												>
+													{row.label}
+												</span>
+											)}
+										</DroppableRowButton>
+									)}
+									{canTogglePinnedFile && (
+										<span
+											className={cn(
+												"pointer-events-none absolute inset-y-0 end-0 w-16 rounded-e-[var(--radius-row)] opacity-0 transition-opacity group-hover/sidebar-row:opacity-100",
+												isActive
+													? "bg-linear-to-r from-transparent from-0% via-sidebar-accent via-25% to-sidebar-accent"
+													: "bg-linear-to-r from-transparent from-0% via-accent via-25% to-accent",
+											)}
+										/>
+									)}
+									<div className="absolute inset-y-0 end-0.5 flex items-center gap-0.5">
+										{row.kind === "folder" &&
+											(onRevealFolder || onCreateFile || onDeleteFolder) && (
+												<FolderActionsMenu
+													id={row.id}
+													label={row.label}
+													open={openActionsPath === row.id}
+													onOpenChange={(open) =>
+														setOpenActionsPath(open ? row.id : null)
+													}
+													onRevealFolder={onRevealFolder}
+													revealLabel={revealLabel}
+													onCreateFile={(id) => void createFile(id)}
+													onDeleteFolder={onDeleteFolder}
+												/>
+											)}
+										{canTogglePinnedFile && (
+											<button
+												type="button"
+												className={sidebarRowActionButtonClass}
+												aria-label="Unpin"
+												title="Unpin"
+												onClick={(event) => {
+													event.stopPropagation();
+													onTogglePinnedFile(row.file.path);
+												}}
+											>
+												<MingcutePinFill className="size-3.5" />
+											</button>
+										)}
+										{row.kind === "file" &&
+											(onRevealFile ||
+												onRenameFile ||
+												onDeleteFile ||
+												onTogglePinnedFile) && (
+												<FileActionsMenu
+													file={row.file}
+													label={row.label}
+													open={openActionsPath === row.file.path}
+													onOpenChange={(open) =>
+														setOpenActionsPath(open ? row.file.path : null)
+													}
+													onRevealFile={onRevealFile}
+													revealLabel={revealLabel}
+													onRenameFile={beginRename}
+													onTogglePinnedFile={onTogglePinnedFile}
+													onDeleteFile={onDeleteFile}
+												/>
+											)}
+									</div>
+								</div>
+							)}
+						</DraggableSidebarRow>
+					);
+				})}
+			</DroppableSidebarNav>
+			<DragOverlay
+				dropAnimation={null}
+				modifiers={[alignChipToCursor]}
+				style={{ pointerEvents: "none", width: "max-content" }}
+			>
+				{activeDragLabel ? (
+					<div className="inline-flex w-max max-w-48 truncate rounded-sm border border-sidebar-border bg-sidebar px-1.5 py-0.5 text-[10px] text-sidebar-foreground shadow-overlay">
+						{fileNameFromPath(activeDragLabel)}
+					</div>
+				) : null}
+			</DragOverlay>
+		</DndContext>
+	);
+
 	return (
 		<SidebarFrame onCollapse={onCollapse} storageScope={storageScope}>
 			<div className="flex items-center justify-between border-b border-sidebar-border px-2.5 py-1.5">
@@ -320,211 +695,7 @@ export function Sidebar({
 					</Select.Root>
 				</div>
 			</div>
-			<div
-				ref={navRef}
-				role="tree"
-				className="flex-1 overflow-y-auto overscroll-contain px-1.5 py-1 outline-none"
-				tabIndex={0}
-				onKeyDown={onKeyDown}
-				data-sidebar-nav
-			>
-				{rows.length === 0 && emptyState}
-				{rows.map((row, index) => {
-					const isActive =
-						row.kind === "file" && row.file.path === highlightPath;
-					const isFocused = focusedIndex === index;
-					const isRenaming =
-						row.kind === "file" && row.file.path === renamingPath;
-					const isPinnedFile = row.kind === "file" && row.file.pinned;
-					const canTogglePinnedFile = isPinnedFile && onTogglePinnedFile;
-					const isPinnedSectionEnd =
-						isPinnedFile && rows[index + 1]?.kind !== "file";
-					if (row.kind === "section") {
-						return (
-							<div
-								key={row.id}
-								role="presentation"
-								data-sidebar-index={index}
-								className="flex items-center gap-1 px-2 pb-1 pt-2 text-[10px] font-medium uppercase text-muted-foreground"
-							>
-								<MingcutePinFill className="size-3 shrink-0" />
-								{row.label}
-							</div>
-						);
-					}
-					const rowStyle = {
-						paddingInlineStart: `${0.5 + row.depth * 0.75}rem`,
-					} as React.CSSProperties;
-					const chevron = (
-						<span className="inline-flex size-3 shrink-0 items-center justify-center text-muted-foreground">
-							{row.kind === "folder" && (
-								<MingcuteRightLine
-									className={cn(
-										"size-3 transition-transform duration-150 ease-out",
-										row.expanded && "rotate-90",
-									)}
-								/>
-							)}
-						</span>
-					);
-					return (
-						<div
-							key={row.kind === "folder" ? row.id : row.file.path}
-							role="treeitem"
-							tabIndex={-1}
-							data-sidebar-index={index}
-							aria-expanded={row.kind === "folder" ? row.expanded : undefined}
-							aria-selected={isActive}
-							className={cn(
-								"group/sidebar-row relative flex w-full items-center rounded-[var(--radius-row)] text-sidebar-foreground",
-								!isActive && isFocused && "bg-accent",
-								isActive &&
-									"bg-sidebar-accent text-sidebar-accent-foreground font-medium",
-								isRenaming && "relative z-30",
-								isPinnedSectionEnd && "mb-3",
-							)}
-							onPointerEnter={() => setFocusedIndex(index)}
-							onPointerLeave={() => setFocusedIndex(null)}
-							onContextMenu={(event) => {
-								if (
-									row.kind === "file" &&
-									!onRevealFile &&
-									!onRenameFile &&
-									!onDeleteFile
-								)
-									return;
-								if (
-									row.kind === "folder" &&
-									!onRevealFolder &&
-									!onCreateFile &&
-									!onDeleteFolder
-								)
-									return;
-								event.preventDefault();
-								setOpenActionsPath(
-									row.kind === "file" ? row.file.path : row.id,
-								);
-							}}
-							title={row.label}
-						>
-							{isRenaming ? (
-								<div
-									className={cn(sidebarRowContentClass, "overflow-visible")}
-									style={rowStyle}
-								>
-									{chevron}
-									<FileRenameInput
-										ref={renameInputRef}
-										value={renameDraft}
-										error={renameError}
-										onChange={(value) => {
-											setRenameDraft(value);
-											setRenameError(
-												row.kind === "file"
-													? getRenameError(row.file.path, value)
-													: null,
-											);
-										}}
-										onCancel={cancelRename}
-										onCommit={commitRename}
-									/>
-								</div>
-							) : (
-								<button
-									type="button"
-									className={cn(
-										sidebarRowContentClass,
-										"truncate border-none bg-transparent",
-									)}
-									style={rowStyle}
-									onClick={(event) => {
-										// `detail` is the click count; file double-clicks rename, but
-										// folders should keep responding to rapid expand/collapse clicks.
-										if (row.kind === "file" && event.detail > 1) return;
-										activateRow(row);
-										requestAnimationFrame(() => navRef.current?.focus());
-									}}
-									onDoubleClick={(event) => {
-										if (row.kind !== "file" || !onRenameFile) return;
-										event.preventDefault();
-										beginRename(row.file, row.label);
-									}}
-								>
-									{chevron}
-									<span
-										className={cn(
-											"min-w-0 flex-1 truncate",
-											isPinnedFile && "[direction:rtl] [text-align:left]",
-										)}
-									>
-										{row.label}
-									</span>
-								</button>
-							)}
-							{canTogglePinnedFile && (
-								<span
-									className={cn(
-										"pointer-events-none absolute inset-y-0 end-0 w-16 rounded-e-[var(--radius-row)] opacity-0 transition-opacity group-hover/sidebar-row:opacity-100",
-										isActive
-											? "bg-linear-to-r from-transparent from-0% via-sidebar-accent via-25% to-sidebar-accent"
-											: "bg-linear-to-r from-transparent from-0% via-accent via-25% to-accent",
-									)}
-								/>
-							)}
-							<div className="absolute inset-y-0 end-0.5 flex items-center gap-0.5">
-								{row.kind === "folder" &&
-									(onRevealFolder || onCreateFile || onDeleteFolder) && (
-										<FolderActionsMenu
-											id={row.id}
-											label={row.label}
-											open={openActionsPath === row.id}
-											onOpenChange={(open) =>
-												setOpenActionsPath(open ? row.id : null)
-											}
-											onRevealFolder={onRevealFolder}
-											revealLabel={revealLabel}
-											onCreateFile={(id) => void createFile(id)}
-											onDeleteFolder={onDeleteFolder}
-										/>
-									)}
-								{canTogglePinnedFile && (
-									<button
-										type="button"
-										className={sidebarRowActionButtonClass}
-										aria-label="Unpin"
-										title="Unpin"
-										onClick={(event) => {
-											event.stopPropagation();
-											onTogglePinnedFile(row.file.path);
-										}}
-									>
-										<MingcutePinFill className="size-3.5" />
-									</button>
-								)}
-								{row.kind === "file" &&
-									(onRevealFile ||
-										onRenameFile ||
-										onDeleteFile ||
-										onTogglePinnedFile) && (
-										<FileActionsMenu
-											file={row.file}
-											label={row.label}
-											open={openActionsPath === row.file.path}
-											onOpenChange={(open) =>
-												setOpenActionsPath(open ? row.file.path : null)
-											}
-											onRevealFile={onRevealFile}
-											revealLabel={revealLabel}
-											onRenameFile={beginRename}
-											onTogglePinnedFile={onTogglePinnedFile}
-											onDeleteFile={onDeleteFile}
-										/>
-									)}
-							</div>
-						</div>
-					);
-				})}
-			</div>
+			{tree}
 			{footer ? (
 				<div
 					className={cn(
@@ -539,6 +710,308 @@ export function Sidebar({
 			) : null}
 		</SidebarFrame>
 	);
+}
+
+type DragItemData =
+	| { kind: "file"; path: string; parentFolderId: string | null; label: string }
+	| {
+			kind: "folder";
+			folderId: string;
+			parentFolderId: string | null;
+			label: string;
+	  };
+
+type DropTargetData = {
+	folderId: string | null;
+};
+
+type DropTarget = DropTargetData & {
+	id: string;
+};
+
+type DragRenderProps = ReturnType<typeof useDraggable> & {
+	isDragging: boolean;
+};
+
+function DraggableSidebarRow({
+	children,
+	enabled,
+	getDisplayPath,
+	row,
+}: {
+	children: (props: DragRenderProps) => ReactNode;
+	enabled: boolean;
+	getDisplayPath: (path: string) => string;
+	row: Extract<SidebarRow, { kind: "file" | "folder" }>;
+}) {
+	const data: DragItemData =
+		row.kind === "file"
+			? {
+					kind: "file",
+					path: row.file.path,
+					parentFolderId: folderIdFromDisplayPath(
+						getDisplayPath(row.file.path),
+					),
+					label: row.label,
+				}
+			: {
+					kind: "folder",
+					folderId: row.id,
+					parentFolderId: parentFolderId(row.id),
+					label: row.label,
+				};
+	const draggable = useDraggable({
+		id: `sidebar-drag:${row.kind}:${row.kind === "file" ? row.file.path : row.id}`,
+		data,
+		disabled: !enabled,
+	});
+	return children(draggable);
+}
+
+const DroppableSidebarNav = forwardRef<
+	HTMLDivElement,
+	{
+		children: ReactNode;
+		enabled: boolean;
+		onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+	}
+>(function DroppableSidebarNav({ children, enabled, onKeyDown }, ref) {
+	const { setNodeRef } = useDroppable({
+		id: "sidebar-drop:root",
+		data: { folderId: null } satisfies DropTargetData,
+		disabled: !enabled,
+	});
+	const setRefs = useCallback(
+		(node: HTMLDivElement | null) => {
+			setNodeRef(node);
+			if (typeof ref === "function") ref(node);
+			else if (ref) ref.current = node;
+		},
+		[ref, setNodeRef],
+	);
+	return (
+		<div
+			ref={setRefs}
+			role="tree"
+			className="flex-1 overflow-y-auto overscroll-contain px-1.5 py-1 outline-none"
+			tabIndex={0}
+			onKeyDown={onKeyDown}
+			data-sidebar-nav
+		>
+			{children}
+		</div>
+	);
+});
+
+function DroppableRowButton({
+	children,
+	className,
+	dragAttributes,
+	dragListeners,
+	enabled,
+	getDisplayPath,
+	onClick,
+	onDoubleClick,
+	row,
+	style,
+}: {
+	children: ReactNode;
+	className: string;
+	dragAttributes: ReturnType<typeof useDraggable>["attributes"];
+	dragListeners: ReturnType<typeof useDraggable>["listeners"];
+	enabled: boolean;
+	getDisplayPath: (path: string) => string;
+	onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+	onDoubleClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+	row: Extract<SidebarRow, { kind: "file" | "folder" }>;
+	style: React.CSSProperties;
+}) {
+	const folderId =
+		row.kind === "folder"
+			? row.id
+			: folderIdFromDisplayPath(getDisplayPath(row.file.path));
+	const { setNodeRef } = useDroppable({
+		id: `sidebar-drop:row:${row.kind === "folder" ? row.id : row.file.path}`,
+		data: { folderId } satisfies DropTargetData,
+		disabled: !enabled,
+	});
+	return (
+		<button
+			ref={setNodeRef}
+			type="button"
+			className={className}
+			style={style}
+			onClick={onClick}
+			onDoubleClick={onDoubleClick}
+			{...dragAttributes}
+			{...dragListeners}
+		>
+			{children}
+		</button>
+	);
+}
+
+function FolderSegmentLabel({
+	enabled,
+	dropTarget,
+	row,
+}: {
+	enabled: boolean;
+	dropTarget: DropTarget | null;
+	row: Extract<SidebarRow, { kind: "folder" }>;
+}) {
+	return (
+		<span className="flex min-w-0 flex-1 truncate">
+			{row.segments.map((segment, index) => (
+				<FolderSegment
+					active={isActiveSegmentDrop(dropTarget, segment.id)}
+					key={segment.id}
+					enabled={enabled}
+					segment={segment}
+					separator={index > 0}
+				/>
+			))}
+		</span>
+	);
+}
+
+function FolderSegment({
+	active,
+	enabled,
+	segment,
+	separator,
+}: {
+	active: boolean;
+	enabled: boolean;
+	segment: { id: string; name: string };
+	separator: boolean;
+}) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef: setDragRef,
+	} = useDraggable({
+		id: `sidebar-drag:segment:${segment.id}`,
+		data: {
+			kind: "folder",
+			folderId: segment.id,
+			parentFolderId: parentFolderId(segment.id),
+			label: segment.name,
+		} satisfies DragItemData,
+		disabled: !enabled,
+	});
+	const { setNodeRef } = useDroppable({
+		id: `sidebar-drop:segment:${segment.id}`,
+		data: { folderId: segment.id } satisfies DropTargetData,
+		disabled: !enabled,
+	});
+	const setRefs = useCallback(
+		(node: HTMLSpanElement | null) => {
+			setDragRef(node);
+			setNodeRef(node);
+		},
+		[setDragRef, setNodeRef],
+	);
+	return (
+		<>
+			{separator ? <span className="text-muted-foreground">/</span> : null}
+			<span
+				ref={setRefs}
+				className={cn(
+					"min-w-0 truncate rounded-sm",
+					active && "bg-sidebar-accent/70",
+				)}
+				{...attributes}
+				{...listeners}
+			>
+				{segment.name}
+			</span>
+		</>
+	);
+}
+
+function isActiveSegmentDrop(target: DropTarget | null, segmentId: string) {
+	return target?.folderId === segmentId && target.id.startsWith(SEGMENT_DROP);
+}
+
+function folderIdFromDisplayPath(displayPath: string): string | null {
+	const dir = dirname(normalizeDisplayPath(displayPath));
+	return dir ? `${normalizeDisplayPath(dir)}/` : null;
+}
+
+function parentFolderId(folderId: string): string | null {
+	const normalized = folderId.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return parent ? `${normalizeDisplayPath(parent)}/` : null;
+}
+
+function rowDropGroup({
+	getDisplayPath,
+	index,
+	rows,
+	target,
+}: {
+	getDisplayPath: (path: string) => string;
+	index: number;
+	rows: SidebarRow[];
+	target: DropTarget;
+}) {
+	const row = rows[index];
+	if (!row || row.kind === "section") return null;
+	if (
+		target.id.startsWith(SEGMENT_DROP) &&
+		row.kind === "folder" &&
+		row.segments.some((segment) => segment.id === target.folderId)
+	) {
+		return null;
+	}
+	if (!rowInFolderDropTarget(row, target.folderId, getDisplayPath)) return null;
+
+	const previous = previousSidebarItem(rows, index);
+	const next = nextSidebarItem(rows, index);
+	return {
+		start:
+			!previous ||
+			!rowInFolderDropTarget(previous, target.folderId, getDisplayPath),
+		end: !next || !rowInFolderDropTarget(next, target.folderId, getDisplayPath),
+	};
+}
+
+function previousSidebarItem(rows: SidebarRow[], index: number) {
+	for (let cursor = index - 1; cursor >= 0; cursor--) {
+		const row = rows[cursor];
+		if (row?.kind !== "section") return row;
+	}
+	return null;
+}
+
+function nextSidebarItem(rows: SidebarRow[], index: number) {
+	for (let cursor = index + 1; cursor < rows.length; cursor++) {
+		const row = rows[cursor];
+		if (row?.kind !== "section") return row;
+	}
+	return null;
+}
+
+function rowInFolderDropTarget(
+	row: Extract<SidebarRow, { kind: "file" | "folder" }>,
+	folderId: string | null,
+	getDisplayPath: (path: string) => string,
+) {
+	if (folderId === null) return true;
+	if (row.kind === "file") {
+		const parent = folderIdFromDisplayPath(getDisplayPath(row.file.path));
+		return parent === folderId || Boolean(parent?.startsWith(folderId));
+	}
+	return row.id === folderId || row.id.startsWith(folderId);
+}
+
+function isInvalidMove(item: DragItemData, targetFolderId: string | null) {
+	if (item.parentFolderId === targetFolderId) return true;
+	if (item.kind === "file") return false;
+	if (item.folderId === targetFolderId) return true;
+	if (!targetFolderId) return false;
+	return targetFolderId.startsWith(item.folderId);
 }
 
 export function SidebarFrame({
