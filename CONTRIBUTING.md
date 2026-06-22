@@ -8,6 +8,7 @@ Thanks for your interest in Hubble. Contributions of any size are welcome. If yo
 - Small fixes and docs updates can go straight to a PR.
 - Install Node.js and pnpm, run `pnpm install`, then `pnpm dev:desktop`.
 - Run `pnpm build` before opening a PR. If you changed editor behavior, also run the editor tests.
+- Add a line to `CHANGELOG.md` under `[Unreleased]` for any user-facing change.
 
 ## Feature requests
 
@@ -74,6 +75,18 @@ This runs Biome, builds every package, and typechecks. If you changed editor beh
 pnpm --filter @hubble.md/editor test
 ```
 
+## Changelog
+
+We keep a running [`CHANGELOG.md`](./CHANGELOG.md) so release notes are written as work lands.
+
+When working with coding agents, the `/changelog` skill adds a well-formed entry for you, and the `/done` skill records one as it wraps up a feature.
+
+- For any user-facing change, add one bullet under `## [Unreleased]` in the matching subhead (`Added` / `Changed` / `Fixed`).
+- Write it for someone reading release notes: one line, describing the effect rather than the implementation.
+- Skip internal-only changes (refactors, deps, CI, tests) unless they change what users experience.
+
+When a desktop version is cut, the `[Unreleased]` section is promoted to a version heading and attached to the GitHub Release automatically.
+
 ## PR checklist
 
 When you open a PR, please:
@@ -81,6 +94,7 @@ When you open a PR, please:
 - link the issue you're addressing when relevant
 - explain what changed
 - describe how you tested it
+- add a `CHANGELOG.md` entry under `[Unreleased]` for user-facing changes
 
 If the change affects editor behavior or rendering, tests are strongly encouraged.
 
