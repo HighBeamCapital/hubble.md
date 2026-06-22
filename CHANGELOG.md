@@ -12,3 +12,20 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+
+## [0.1.11] - 2026-06-21
+
+### Added
+- HTML Apps: view and run interactive HTML apps directly in the editor
+- File APIs so HTML apps can read and write workspace files
+- First-run onboarding with an HTML Apps callout
+- Hubble now remembers your window size and position between launches
+- Web homepage at hubble.md
+
+### Changed
+- Refreshed the desktop app icon
+- Larger default window size on first launch
+- Restyled task list checkboxes
+
+### Fixed
+- Slash menu no longer hides behind surrounding UI
