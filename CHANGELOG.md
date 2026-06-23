@@ -10,6 +10,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Added
 
 ### Changed
+
+### Fixed
+
+## [0.1.12] - 2026-06-23
+
+### Changed
 - New app icon
 - Lowercase hubble wordmark on the welcome screen
 
