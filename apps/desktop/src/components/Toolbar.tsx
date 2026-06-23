@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu";
-import { Button, Toolbar as SharedToolbar } from "@hubble.md/ui";
+import { Button, Toolbar as SharedToolbar, ThemeToggle } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
@@ -42,9 +42,12 @@ export function Toolbar({
 				void renameCurrentMarkdownFile(nextName)
 			}
 			rightSlot={
-				workspacePath && currentPath ? (
-					<NoteActionsMenu path={currentPath} />
-				) : undefined
+				<>
+					<ThemeToggle />
+					{workspacePath && currentPath ? (
+						<NoteActionsMenu path={currentPath} />
+					) : null}
+				</>
 			}
 		/>
 	);

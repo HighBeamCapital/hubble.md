@@ -6,6 +6,8 @@
 @import "@hubble.md/ui/theme.css";
 @import "@hubble.md/ui/fonts.css";
 
+@custom-variant dark (&:is(.dark *));
+
 html,
 body,
 #root {

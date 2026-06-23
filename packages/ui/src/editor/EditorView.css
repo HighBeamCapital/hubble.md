@@ -515,3 +515,105 @@
 		inset-inline-start: 100%;
 	}
 }
+
+/* ───── Dark-mode overrides ───── */
+
+.dark [data-hubble-editor] .ProseMirror pre {
+	background: oklch(0.19 0.004 106);
+}
+
+.dark [data-hubble-editor] .ProseMirror pre code {
+	color: #abb2bf;
+}
+
+.dark [data-hubble-editor] .ProseMirror code {
+	background: oklch(0.26 0.004 106);
+}
+
+.dark [data-hubble-editor] .ProseMirror blockquote {
+	color: color-mix(in oklab, var(--foreground) 65%, transparent);
+}
+
+.dark [data-hubble-editor] .ProseMirror h4 {
+	color: color-mix(in oklab, var(--foreground) 60%, var(--muted-foreground));
+}
+
+.dark [data-hubble-editor] .ProseMirror .xml .hljs-meta {
+	color: #5c6370;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-comment,
+.dark [data-hubble-editor] .ProseMirror .hljs-quote {
+	color: #5c6370;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-tag,
+.dark [data-hubble-editor] .ProseMirror .hljs-attribute,
+.dark [data-hubble-editor] .ProseMirror .hljs-keyword,
+.dark [data-hubble-editor] .ProseMirror .hljs-selector-tag,
+.dark [data-hubble-editor] .ProseMirror .hljs-literal,
+.dark [data-hubble-editor] .ProseMirror .hljs-name {
+	color: #c678dd;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-variable,
+.dark [data-hubble-editor] .ProseMirror .hljs-template-variable {
+	color: #e5c07b;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-code,
+.dark [data-hubble-editor] .ProseMirror .hljs-string,
+.dark [data-hubble-editor] .ProseMirror .hljs-meta .hljs-string {
+	color: #98c379;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-regexp,
+.dark [data-hubble-editor] .ProseMirror .hljs-link {
+	color: #e06c75;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-title,
+.dark [data-hubble-editor] .ProseMirror .hljs-symbol,
+.dark [data-hubble-editor] .ProseMirror .hljs-bullet,
+.dark [data-hubble-editor] .ProseMirror .hljs-number {
+	color: #d19a66;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-section,
+.dark [data-hubble-editor] .ProseMirror .hljs-meta {
+	color: #e5c07b;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-title.class_,
+.dark [data-hubble-editor] .ProseMirror .hljs-class .hljs-title,
+.dark [data-hubble-editor] .ProseMirror .hljs-type,
+.dark [data-hubble-editor] .ProseMirror .hljs-built_in,
+.dark [data-hubble-editor] .ProseMirror .hljs-params {
+	color: #e5c07b;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-attr {
+	color: #d19a66;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-subst {
+	color: #abb2bf;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-selector-id,
+.dark [data-hubble-editor] .ProseMirror .hljs-selector-class {
+	color: #e5c07b;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-doctag,
+.dark [data-hubble-editor] .ProseMirror .hljs-strong {
+	font-weight: 700;
+}
+
+.dark [data-hubble-editor] .ProseMirror .hljs-emphasis {
+	font-style: italic;
+}
+
+.dark [data-hubble-editor] .ProseMirror span[data-link="true"] {
+	color: color-mix(in oklab, var(--brand) 55%, var(--foreground));
+}
