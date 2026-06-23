@@ -536,6 +536,13 @@ function insertBeforeCloseTag(html: string, tagName: string, content: string) {
 }
 
 function injectHtmlAppRuntime(html: string): string {
+	// Only inject the Hubble runtime into HTML files that reference it.
+	// Plain user-authored HTML files are served as-is to avoid breaking
+	// their own styles, fonts, and layout.
+	if (!html.includes("hubble") && !html.includes("__hubble")) {
+		return html;
+	}
+
 	const headStyles = htmlAppHeadStyles.map(styleTag).join("\n");
 	const headScripts = htmlAppHeadScripts.map(scriptTag).join("\n");
 	const bodyEndScripts = htmlAppBodyEndScripts.map(scriptTag).join("\n");
