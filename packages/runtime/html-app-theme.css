@@ -1,5 +1,5 @@
 :root {
-	color-scheme: light;
+	color-scheme: light dark;
 	--brand: oklch(0.426 0.08 159.6);
 	--brand-accent: oklch(0.847 0.168 84.7);
 	--brand-accent-foreground: oklch(0.327 0.051 164.9);
@@ -71,4 +71,26 @@ button:not(:disabled),
 
 ::selection {
 	background: color-mix(in oklab, var(--selected) 70%, transparent);
+}
+
+.dark {
+	color-scheme: dark;
+	--background: oklch(0.236 0.006 106);
+	--foreground: oklch(0.962 0.003 106);
+	--card: oklch(0.274 0.006 106);
+	--card-foreground: var(--foreground);
+	--primary: color-mix(in oklab, var(--brand) 88%, white);
+	--primary-foreground: oklch(0.18 0.005 106);
+	--secondary: oklch(0.315 0.006 106);
+	--secondary-foreground: var(--foreground);
+	--muted: oklch(0.302 0.006 106);
+	--muted-foreground: oklch(0.754 0.005 106);
+	--accent: oklch(0.312 0.006 106);
+	--accent-foreground: var(--foreground);
+	--selected: oklch(0.36 0.008 106);
+	--selected-foreground: var(--foreground);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 14%);
+	--ring: color-mix(in oklab, var(--brand) 68%, white);
 }

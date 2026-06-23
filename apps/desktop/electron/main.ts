@@ -156,6 +156,7 @@ const htmlAppHeadScripts = [
 const htmlAppBodyEndScripts = [
 	{ name: "alpine", source: alpineRuntime },
 ] as const;
+let htmlAppResolvedTheme: "light" | "dark" = "light";
 
 function grantsPath(): string {
 	return path.join(app.getPath("userData"), "grants.json");
@@ -545,7 +546,22 @@ function injectHtmlAppRuntime(html: string): string {
 		html.search(/<\/head\s*>/i) === -1
 			? `${headInjection}${html}`
 			: insertBeforeCloseTag(html, "head", headInjection);
-	return insertBeforeCloseTag(withHead, "body", bodyEndInjection);
+	const withBody = insertBeforeCloseTag(withHead, "body", bodyEndInjection);
+	return addHtmlClass(withBody, htmlAppResolvedTheme === "dark" ? "dark" : "");
+}
+
+function addHtmlClass(html: string, className: string): string {
+	if (!className) return html;
+	const openTag = html.match(/<html(\s[^>]*)?>/i);
+	if (!openTag) return html;
+	const existing = openTag[1] || "";
+	if (existing.includes(`class="${className}"`) || existing.includes(`class='${className}'`)) return html;
+	if (/class\s*=/.test(existing)) {
+		return html.replace(/<html(\s[^>]*)?>/i, (match) =>
+			match.replace(/class\s*=\s*(["'])(.*?)\1/, `class="$2 ${className}"`),
+		);
+	}
+	return html.replace(/<html(\s[^>]*)?>/i, `<html$1 class="${className}">`);
 }
 
 function responseForAsset(filePath: string) {
@@ -932,6 +948,13 @@ async function createWindow() {
 }
 
 function registerIpc() {
+	ipcMain.handle(
+		"desktop:set-html-app-theme",
+		(_event, theme: "light" | "dark") => {
+			htmlAppResolvedTheme = theme;
+		},
+	);
+
 	ipcMain.handle(
 		"desktop:list-directory",
 		async (_event, { path: dirPath }) => {
