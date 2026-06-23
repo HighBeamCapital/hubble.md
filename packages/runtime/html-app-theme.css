@@ -1,5 +1,4 @@
 :root {
-	color-scheme: light dark;
 	--brand: oklch(0.426 0.08 159.6);
 	--brand-accent: oklch(0.847 0.168 84.7);
 	--brand-accent-foreground: oklch(0.327 0.051 164.9);
@@ -74,7 +73,6 @@ button:not(:disabled),
 }
 
 .dark {
-	color-scheme: dark;
 	--background: oklch(0.236 0.006 106);
 	--foreground: oklch(0.962 0.003 106);
 	--card: oklch(0.274 0.006 106);
