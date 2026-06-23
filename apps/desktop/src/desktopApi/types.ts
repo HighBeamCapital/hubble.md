@@ -98,7 +98,6 @@ export type DesktopApi = {
 	getLaunchFilePath(): Promise<string | null>;
 	getLaunchWorkspacePath(): Promise<string | null>;
 	setMenuState(state: MenuState): Promise<void>;
-	setHtmlAppTheme(theme: "light" | "dark"): Promise<void>;
 	getUpdateState(): Promise<DesktopUpdateState>;
 	checkForUpdates(): Promise<void>;
 	installUpdate(): Promise<void>;

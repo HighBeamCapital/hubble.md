@@ -72,8 +72,6 @@ const desktopApi = {
 	getLaunchWorkspacePath: () =>
 		ipcRenderer.invoke("desktop:get-launch-workspace-path"),
 	setMenuState: (state) => ipcRenderer.invoke("desktop:set-menu-state", state),
-	setHtmlAppTheme: (theme) =>
-		ipcRenderer.invoke("desktop:set-html-app-theme", theme),
 	getUpdateState: () => ipcRenderer.invoke("desktop:get-update-state"),
 	checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
 	installUpdate: () => ipcRenderer.invoke("desktop:install-update"),

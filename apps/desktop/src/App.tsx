@@ -1,5 +1,5 @@
 import { wikiDisplayNameForTarget } from "@hubble.md/editor";
-import { Button, EditorView, type WikiTarget, useTheme } from "@hubble.md/ui";
+import { Button, EditorView, type WikiTarget } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useState } from "react";
@@ -98,7 +98,6 @@ function App() {
 	const workspacePath = useStoreValue(workspacePathStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const hasWorkspace = workspacePath !== null;
-	const { resolvedTheme } = useTheme();
 	const [scrollContainerEl, setScrollContainerEl] =
 		useState<HTMLDivElement | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -220,10 +219,6 @@ function App() {
 	useEffect(() => {
 		void desktopApi.setMenuState({ hasWorkspace });
 	}, [hasWorkspace]);
-
-	useEffect(() => {
-		void desktopApi.setHtmlAppTheme(resolvedTheme);
-	}, [resolvedTheme]);
 
 	useEffect(() => {
 		if (!sidebarOpen) setFocusedSidebarPath(null);

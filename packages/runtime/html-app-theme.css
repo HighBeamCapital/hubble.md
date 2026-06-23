@@ -56,19 +56,7 @@
 	--default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-body {
-	font-family:
-		ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
 
-button:not(:disabled),
-[role="button"]:not(:disabled) {
-	cursor: pointer;
-}
-
-::selection {
-	background: color-mix(in oklab, var(--selected) 70%, transparent);
-}
 
 .dark {
 	--background: oklch(0.236 0.006 106);
