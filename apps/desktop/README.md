@@ -41,7 +41,7 @@ pnpm bundle:desktop
 ## Distribution
 
 The desktop app is macOS-only for now. Production updates use GitHub Releases
-on `bholmesdev/hubble.md`. Each release should include:
+on `HighBeamCapital/hubble.md`. Each release should include:
 
 - `latest-mac.yml`
 - the generated `.zip`

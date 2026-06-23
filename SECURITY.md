@@ -8,6 +8,6 @@ If you believe you've found a security vulnerability, please follow responsible 
 
 Instead, please report it privately through GitHub:
 
-- **GitHub Security Advisory:** [Open a private advisory](https://github.com/bholmesdev/hubble.md/security/advisories/new)
+- **GitHub Security Advisory:** [Open a private advisory](https://github.com/HighBeamCapital/hubble.md/security/advisories/new)
 
 We will acknowledge your report promptly and work with you to understand and resolve the issue as quickly as possible.

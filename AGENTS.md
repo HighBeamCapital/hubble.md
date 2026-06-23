@@ -12,7 +12,7 @@ Comments aren't evil. Use doc comments on complex functions, or inline comments 
 
 ### Issue tracker
 
-GitHub Issues on `bholmesdev/hubble.md` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `HighBeamCapital/hubble.md` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

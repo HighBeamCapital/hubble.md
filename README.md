@@ -1,30 +1,28 @@
 # Hubble.md
 
-**The best notepad for you and your agents.** Free, open source, backed by Markdown and HTML.
+**A fast, open-source Markdown editor for your workspace.**
 
 <p align="center">
-  <a href="https://github.com/bholmesdev/hubble.md/releases/latest">Download</a>
+  <a href="https://github.com/HighBeamCapital/hubble.md/releases/latest">Download</a>
   ·
-  <a href="https://github.com/bholmesdev/hubble.md/releases">Releases</a>
+  <a href="https://github.com/HighBeamCapital/hubble.md/releases">Releases</a>
   ·
   <a href="CONTRIBUTING.md">Contributing</a>
-  ·
-  <a href="https://twitter.com/bholmesdev">@bholmesdev</a>
 </p>
 
 ## What is Hubble?
 
-Hubble is a free, open-source notetaking app for you and your agents.
+Hubble is a free, open-source Markdown editor and notetaking app.
 
 - **Feels familiar.** The same writing experience you're used to from Notion or Apple Notes, but for Markdown. `/` commands, Markdown shortcuts, and file properties / frontmatter are supported.
-- **Agent ready.** Point your agent at your notes folder to start collaborating. Hubble will live-reloads as your agent edits.
+- **Agent ready.** Point your agent at your notes folder to start collaborating. Hubble live-reloads as your agent edits.
 - **Build any view.** Beyond Markdown, you can build and view HTML-based apps. [Install the skills](https://github.com/bholmesdev/hubble-skills) and tell your coding agent what to build. Turn a folder of notes into a table, a bookshelf, a map... anything you can think of.
 
 ## Download
 
-Hubble ships as a desktop app. Install the latest build from the [releases page](https://github.com/bholmesdev/hubble.md/releases/latest).
+Hubble ships as a desktop app. Install the latest build from the [releases page](https://github.com/HighBeamCapital/hubble.md/releases/latest).
 
-macOS is supported today. Windows and Linux are not built yet, mostly because I haven't tested on those operating systems yet :) They should be straightforward to add, so contributions are welcome!
+macOS is supported today. Windows and Linux builds are not available yet — contributions are welcome!
 
 ## Compile from source
 
