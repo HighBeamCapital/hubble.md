@@ -6,7 +6,9 @@ type MockDesktopApi = {
 	listDirectory: ReturnType<typeof vi.fn>;
 	readWorkspaceConfig: ReturnType<typeof vi.fn>;
 	writeWorkspaceConfig: ReturnType<typeof vi.fn>;
+	createFolder: ReturnType<typeof vi.fn>;
 	renameFile: ReturnType<typeof vi.fn>;
+	deleteFile: ReturnType<typeof vi.fn>;
 	pathExists: ReturnType<typeof vi.fn>;
 };
 
@@ -17,7 +19,9 @@ function createDesktopApi(): MockDesktopApi {
 		listDirectory: vi.fn(async () => ({ files: [], folders: [] })),
 		readWorkspaceConfig: vi.fn(async () => ({ version: 1, pinnedNotes: [] })),
 		writeWorkspaceConfig: vi.fn(async () => {}),
+		createFolder: vi.fn(async () => {}),
 		renameFile: vi.fn(async () => {}),
+		deleteFile: vi.fn(async () => {}),
 		pathExists: vi.fn(async () => false),
 	};
 }
@@ -446,6 +450,148 @@ describe("desktop renameMarkdownFile", () => {
 		expect(viewerStore.get().content).toBe(
 			"[Target](renamed.md)\nunsaved edit",
 		);
+	});
+});
+
+describe("desktop folder actions", () => {
+	beforeEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("creates a unique folder and adds it to the sidebar snapshot", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [],
+			folders: [{ path: "/workspace/new-folder-2", modified_at: 2 }],
+		});
+		const { appStore, createFolderInFolder, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				folders: [{ path: "/workspace/new-folder", modified_at: 1 }],
+			},
+		}));
+
+		const path = await createFolderInFolder("/workspace");
+
+		expect(path).toBe("/workspace/new-folder-2");
+		expect(api.createFolder).toHaveBeenCalledWith("/workspace/new-folder-2");
+		expect(workspaceStore.get().folders).toEqual([
+			{ path: "/workspace/new-folder-2", modified_at: 2 },
+		]);
+	});
+
+	it("renames folders and rewrites contained workspace paths", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/archive/plan.md", modified_at: 2 }],
+			folders: [{ path: "/workspace/archive", modified_at: 2 }],
+		});
+		const { appStore, renameFolder, viewerStore, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [{ path: "/workspace/drafts/plan.md", modified_at: 1 }],
+				folders: [{ path: "/workspace/drafts", modified_at: 1 }],
+				pinnedNotes: ["/workspace/drafts/plan.md"],
+				lastOpenedPaths: { "/workspace": "/workspace/drafts/plan.md" },
+			},
+			document: {
+				...current.document,
+				currentPath: "/workspace/drafts/plan.md",
+				lastOpenedPath: "/workspace/drafts/plan.md",
+				content: "[Self](plan.md)",
+				diskContent: "[Self](plan.md)",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		await renameFolder("/workspace/drafts", "archive");
+
+		expect(api.renameFile).toHaveBeenCalledWith(
+			"/workspace/drafts",
+			"/workspace/archive",
+		);
+		expect(viewerStore.get().currentPath).toBe("/workspace/archive/plan.md");
+		expect(workspaceStore.get().pinnedNotes).toEqual([
+			"/workspace/archive/plan.md",
+		]);
+		expect(api.writeWorkspaceConfig).toHaveBeenCalledWith("/workspace", {
+			version: 1,
+			pinnedNotes: ["archive/plan.md"],
+		});
+	});
+
+	it("renames compacted nested folders to the requested display path", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/archive/plan.md", modified_at: 2 }],
+			folders: [{ path: "/workspace/archive", modified_at: 2 }],
+		});
+		const { appStore, renameFolder } = await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [{ path: "/workspace/drafts/current/plan.md", modified_at: 1 }],
+				folders: [
+					{ path: "/workspace/drafts", modified_at: 1 },
+					{ path: "/workspace/drafts/current", modified_at: 1 },
+				],
+			},
+		}));
+
+		await renameFolder(
+			"/workspace/drafts/current",
+			"archive",
+			"/workspace/archive",
+		);
+
+		expect(api.renameFile).toHaveBeenCalledWith(
+			"/workspace/drafts/current",
+			"/workspace/archive",
+		);
+		expect(api.renameFile).not.toHaveBeenCalledWith(
+			"/workspace/drafts/current",
+			"/workspace/drafts/current/archive",
+		);
+		expect(api.deleteFile).toHaveBeenCalledWith("/workspace/drafts");
+	});
+
+	it("deletes a freshly created folder when inline naming is canceled", async () => {
+		const api = createDesktopApi();
+		const { appStore, createFolderInFolder, deleteFolder, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+			},
+		}));
+
+		const path = await createFolderInFolder("/workspace");
+		if (!path) throw new Error("Expected created folder path");
+		await deleteFolder(path);
+
+		expect(api.createFolder).toHaveBeenCalledWith("/workspace/new-folder");
+		expect(api.deleteFile).toHaveBeenCalledWith("/workspace/new-folder", {
+			recursive: true,
+		});
+		expect(workspaceStore.get().folders).toEqual([]);
 	});
 });
 

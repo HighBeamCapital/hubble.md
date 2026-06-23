@@ -1052,6 +1052,13 @@ function registerIpc() {
 		},
 	);
 
+	ipcMain.handle("desktop:create-folder", async (_event, { path: dirPath }) => {
+		const resolved = resolvePath(dirPath);
+		assertGranted(path.dirname(resolved));
+		await fs.mkdir(resolved);
+		grantRoot(resolved);
+	});
+
 	ipcMain.handle(
 		"desktop:rename-file",
 		async (_event, { fromPath, toPath }) => {

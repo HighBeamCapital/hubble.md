@@ -32,6 +32,7 @@ const desktopApi = {
 		ipcRenderer.invoke("desktop:read-file-text", { path }),
 	writeFileText: (path, content) =>
 		ipcRenderer.invoke("desktop:write-file-text", { path, content }),
+	createFolder: (path) => ipcRenderer.invoke("desktop:create-folder", { path }),
 	renameFile: (fromPath, toPath) =>
 		ipcRenderer.invoke("desktop:rename-file", { fromPath, toPath }),
 	pathExists: (path) => ipcRenderer.invoke("desktop:path-exists", { path }),
