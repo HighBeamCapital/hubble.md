@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+- App title now always shows Hubble instead of the starter template name
 
 ## [0.1.12] - 2026-06-23
 
