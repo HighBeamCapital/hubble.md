@@ -1,10 +1,17 @@
 ---
 import Base from "../layouts/Base.astro";
 
-const FG = "#173d2e", CREAM = "#fff8e7", GOLD = "#ffc21f", WHITE = "#fff", PAPER = "#fbf7ec";
+const FG = "#173d2e",
+	CREAM = "#fff8e7",
+	GOLD = "#ffc21f",
+	WHITE = "#fff",
+	PAPER = "#fbf7ec";
 
 // refined mark: big friendly lens-eye + chunky tube + rounded wedge base. gleam = bg (negative-space hole)
-const scope = (fg, gleam) => `<svg viewBox="0 0 64 64" fill="none" stroke-linejoin="round" stroke-linecap="round">
+const scope = (
+	fg,
+	gleam,
+) => `<svg viewBox="0 0 64 64" fill="none" stroke-linejoin="round" stroke-linecap="round">
   <path d="M26 46 L36 46 L41 54 Q42.5 57 39 57 L23 57 Q19.5 57 21 54 Z" fill="${fg}"/>
   <line x1="31" y1="49" x2="43" y2="23" stroke="${fg}" stroke-width="13"/>
   <circle cx="44" cy="21" r="12.5" fill="${fg}"/>
@@ -12,11 +19,11 @@ const scope = (fg, gleam) => `<svg viewBox="0 0 64 64" fill="none" stroke-linejo
 </svg>`;
 
 const treatments = [
-  { bg: PAPER, fg: FG, name: "Green on paper" },
-  { bg: WHITE, fg: FG, name: "Green on white" },
-  { bg: GOLD, fg: FG, name: "Green on golden" },
-  { bg: FG, fg: CREAM, name: "Cream on green" },
-  { bg: FG, fg: GOLD, name: "Golden on green" },
+	{ bg: PAPER, fg: FG, name: "Green on paper" },
+	{ bg: WHITE, fg: FG, name: "Green on white" },
+	{ bg: GOLD, fg: FG, name: "Green on golden" },
+	{ bg: FG, fg: CREAM, name: "Cream on green" },
+	{ bg: FG, fg: GOLD, name: "Golden on green" },
 ];
 const sizes = [16, 24, 32, 48];
 ---

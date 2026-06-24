@@ -1,15 +1,11 @@
 ---
 import "../styles/global.css";
 interface Props {
-  title?: string;
-  description?: string;
-  concept?: string;
+	title?: string;
+	description?: string;
+	concept?: string;
 }
-const {
-  title = "Hubble",
-  description = "Hubble.md",
-  concept,
-} = Astro.props;
+const { title = "Hubble", description = "Hubble.md", concept } = Astro.props;
 const ogImage = new URL("/og-image.png", Astro.site).href;
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 ---

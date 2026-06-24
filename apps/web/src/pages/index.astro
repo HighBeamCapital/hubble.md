@@ -1,36 +1,133 @@
 ---
 import { Icon } from "astro-icon/components";
-import Base from "../layouts/Base.astro";
 import Logo from "../components/Logo.astro";
+import Base from "../layouts/Base.astro";
+
 const headline = "The best notepad for you and your agents";
 const sub = "Free, open source, backed by Markdown and HTML.";
 
 // Workspace demo content — drives both the markup below and the client script.
 const notes = [
-  { title: "Desert stars", tag: "Outdoors", place: "Joshua Tree", color: "var(--hero-leaf)", h: 116, x: 122, y: 150 },
-  { title: "Tokyo ramen", tag: "Travel", place: "Tokyo", color: "#c46a48", h: 110, x: 398, y: 98 },
-  { title: "Dune", tag: "Books", place: "Lisbon", color: "#5d6bb0", h: 118, x: 252, y: 112 },
-  { title: "Sourdough", tag: "Cooking", place: "Home", color: "#d99a2b", h: 112, x: 166, y: 120 },
-  { title: "Tide pools", tag: "Outdoors", place: "Big Sur", color: "#2e8d7a", h: 115, x: 82, y: 128 },
-  { title: "Kyoto garden", tag: "Travel", place: "Kyoto", color: "#b06a7a", h: 109, x: 368, y: 140, fresh: true },
+	{
+		title: "Desert stars",
+		tag: "Outdoors",
+		place: "Joshua Tree",
+		color: "var(--hero-leaf)",
+		h: 116,
+		x: 122,
+		y: 150,
+	},
+	{
+		title: "Tokyo ramen",
+		tag: "Travel",
+		place: "Tokyo",
+		color: "#c46a48",
+		h: 110,
+		x: 398,
+		y: 98,
+	},
+	{
+		title: "Dune",
+		tag: "Books",
+		place: "Lisbon",
+		color: "#5d6bb0",
+		h: 118,
+		x: 252,
+		y: 112,
+	},
+	{
+		title: "Sourdough",
+		tag: "Cooking",
+		place: "Home",
+		color: "#d99a2b",
+		h: 112,
+		x: 166,
+		y: 120,
+	},
+	{
+		title: "Tide pools",
+		tag: "Outdoors",
+		place: "Big Sur",
+		color: "#2e8d7a",
+		h: 115,
+		x: 82,
+		y: 128,
+	},
+	{
+		title: "Kyoto garden",
+		tag: "Travel",
+		place: "Kyoto",
+		color: "#b06a7a",
+		h: 109,
+		x: 368,
+		y: 140,
+		fresh: true,
+	},
 ];
-const tagClass: Record<string, string> = { Outdoors: "t-out", Travel: "t-travel", Books: "t-books", Cooking: "t-cook" };
+const tagClass: Record<string, string> = {
+	Outdoors: "t-out",
+	Travel: "t-travel",
+	Books: "t-books",
+	Cooking: "t-cook",
+};
 // Bookshelf demo: a filled two-shelf library. The six notes become titled spines; deterministic
 // filler spines (sin-based so the build is stable) pad the shelves so it reads as a real bookcase
 // rather than six lonely books. The count intentionally doesn't track the sidebar file list.
-const spinePalette = ["#3f7d63", "#c9a23a", "#5d6bb0", "#bf6b50", "#2e8d7a", "#b06a7a", "#6f8a3a", "#cf9a3a", "#7a5c9e", "#4f7da0", "#a8516a", "#357a5e", "#c46a48", "#8a6f3a"];
+const spinePalette = [
+	"#3f7d63",
+	"#c9a23a",
+	"#5d6bb0",
+	"#bf6b50",
+	"#2e8d7a",
+	"#b06a7a",
+	"#6f8a3a",
+	"#cf9a3a",
+	"#7a5c9e",
+	"#4f7da0",
+	"#a8516a",
+	"#357a5e",
+	"#c46a48",
+	"#8a6f3a",
+];
 // Filler spine titles in the same note-ish voice as the six real notes; every spine is labelled.
-const fillerTitles = ["Cold brew", "Big Sur", "Orion", "Tide charts", "Lisbon trams", "Trail notes", "Night sky", "Field guide", "Sea glass", "Camp recipes", "Star maps", "Old letters", "Map sketches", "Garden log", "Tea blends", "Coastlines", "Pour over", "Sea fog"];
+const fillerTitles = [
+	"Cold brew",
+	"Big Sur",
+	"Orion",
+	"Tide charts",
+	"Lisbon trams",
+	"Trail notes",
+	"Night sky",
+	"Field guide",
+	"Sea glass",
+	"Camp recipes",
+	"Star maps",
+	"Old letters",
+	"Map sketches",
+	"Garden log",
+	"Tea blends",
+	"Coastlines",
+	"Pour over",
+	"Sea fog",
+];
 const titleSlots = [2, 5, 8, 13, 16, 20]; // where the six real notes sit among the spines
 let fillerIdx = 0;
 const library = Array.from({ length: 24 }, (_, i) => {
-  const ti = titleSlots.indexOf(i);
-  const note = ti >= 0 ? notes[ti] : null;
-  const title = note ? note.title : fillerTitles[fillerIdx++];
-  const minH = Math.round(title.length * 6.7 + 30); // tall enough for the vertical spine label
-  const h = Math.max(minH, Math.round(108 + Math.abs(Math.sin(i * 1.3 + 1)) * 40));
-  const w = note ? 30 : 23 + Math.round(Math.abs(Math.sin(i * 0.77 + 1)) * 12);
-  return { color: note ? note.color : spinePalette[i % spinePalette.length], h, w, title };
+	const ti = titleSlots.indexOf(i);
+	const note = ti >= 0 ? notes[ti] : null;
+	const title = note ? note.title : fillerTitles[fillerIdx++];
+	const minH = Math.round(title.length * 6.7 + 30); // tall enough for the vertical spine label
+	const h = Math.max(
+		minH,
+		Math.round(108 + Math.abs(Math.sin(i * 1.3 + 1)) * 40),
+	);
+	const w = note ? 30 : 23 + Math.round(Math.abs(Math.sin(i * 0.77 + 1)) * 12);
+	return {
+		color: note ? note.color : spinePalette[i % spinePalette.length],
+		h,
+		w,
+		title,
+	};
 });
 const shelfRows = [library.slice(0, 12), library.slice(12)];
 // Route flows west→east across the map: Americas (Big Sur → Joshua Tree → Home), then Eurasia (Lisbon → Kyoto → Tokyo). Monotonic x keeps the spline from zig-zagging back and forth.
@@ -38,13 +135,18 @@ const order = [4, 0, 3, 2, 5, 1];
 // Smooth Catmull-Rom spline through the ordered pins so the route flows instead of zig-zagging.
 const pts = order.map((i) => [notes[i].x, notes[i].y]);
 const route = pts.reduce((d, p1, i) => {
-  if (i === 0) return `M${p1[0]} ${p1[1]}`;
-  const p0 = pts[i - 1], p2 = pts[i + 1] || p1, pm = pts[i - 2] || p0;
-  const c1x = p0[0] + (p1[0] - pm[0]) / 6, c1y = p0[1] + (p1[1] - pm[1]) / 6;
-  const c2x = p1[0] - (p2[0] - p0[0]) / 6, c2y = p1[1] - (p2[1] - p0[1]) / 6;
-  return `${d} C${c1x} ${c1y} ${c2x} ${c2y} ${p1[0]} ${p1[1]}`;
+	if (i === 0) return `M${p1[0]} ${p1[1]}`;
+	const p0 = pts[i - 1],
+		p2 = pts[i + 1] || p1,
+		pm = pts[i - 2] || p0;
+	const c1x = p0[0] + (p1[0] - pm[0]) / 6,
+		c1y = p0[1] + (p1[1] - pm[1]) / 6;
+	const c2x = p1[0] - (p2[0] - p0[0]) / 6,
+		c2y = p1[1] - (p2[1] - p0[1]) / 6;
+	return `${d} C${c1x} ${c1y} ${c2x} ${c2y} ${p1[0]} ${p1[1]}`;
 }, "");
-const ccLogo = '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/></svg>';
+const ccLogo =
+	'<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/></svg>';
 ---
 <Base title="Hubble.md">
   <div class="page">

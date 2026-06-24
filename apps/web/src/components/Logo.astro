@@ -1,7 +1,9 @@
 ---
 // Hubble wordmark + eye mark. Dark parts use currentColor (set ink via `color`);
 // shells & lens gleam stay light. Colorized to the forest ink — no yellow/green accents.
-interface Props { class?: string }
+interface Props {
+	class?: string;
+}
 const { class: cls } = Astro.props;
 ---
 <svg class={cls} viewBox="0 0 239 78" fill="none" role="img" aria-label="Hubble" xmlns="http://www.w3.org/2000/svg">
