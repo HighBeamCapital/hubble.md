@@ -105,7 +105,8 @@
 			]
 		},
 		"deb": {
-			"packageName": "hubble.md"
+			"packageName": "hubble.md",
+			"artifactName": "hubble_${version}_${arch}.${ext}"
 		},
 		"fileAssociations": [
 			{
