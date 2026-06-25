@@ -14,6 +14,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+- Editor word and character counts now reflect the selected text
 
 ## [0.1.14] - 2026-06-25
 
