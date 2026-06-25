@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFileTree } from "./useSidebarTree";
+import { buildFileTree, flattenRows } from "./useSidebarTree";
 
 function folderNames(node: ReturnType<typeof buildFileTree>) {
 	return [...node.folders.values()].map((folder) => folder.name);
@@ -39,5 +39,52 @@ describe("buildFileTree", () => {
 		);
 
 		expect(folderNames(tree)).toEqual([]);
+	});
+});
+
+describe("flattenRows", () => {
+	it("keeps a newly-created nested folder uncollapsed while naming", () => {
+		const getDisplayPath = (path: string) => path.replace("/workspace/", "");
+		const tree = buildFileTree(
+			[],
+			[
+				{ path: "/workspace/empty", modifiedAt: 1 },
+				{ path: "/workspace/empty/new-folder", modifiedAt: 2 },
+			],
+			getDisplayPath,
+		);
+
+		const rows = flattenRows({
+			files: [],
+			getDisplayPath,
+			tree,
+			sortMode: "alpha",
+			expandedFolders: new Set(["empty/"]),
+			uncompactFolderId: "empty/new-folder/",
+		});
+
+		expect(rows.map((row) => row.label)).toEqual(["empty", "new-folder"]);
+	});
+
+	it("collapses the nested folder chain after naming commits", () => {
+		const getDisplayPath = (path: string) => path.replace("/workspace/", "");
+		const tree = buildFileTree(
+			[],
+			[
+				{ path: "/workspace/empty", modifiedAt: 1 },
+				{ path: "/workspace/empty/new-folder", modifiedAt: 2 },
+			],
+			getDisplayPath,
+		);
+
+		const rows = flattenRows({
+			files: [],
+			getDisplayPath,
+			tree,
+			sortMode: "alpha",
+			expandedFolders: new Set(["empty/"]),
+		});
+
+		expect(rows.map((row) => row.label)).toEqual(["empty/new-folder"]);
 	});
 });

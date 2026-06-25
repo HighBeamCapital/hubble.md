@@ -33,6 +33,7 @@ import MingcuteDeleteLine from "~icons/mingcute/delete-line";
 import MingcuteEditLine from "~icons/mingcute/edit-line";
 import MingcuteFolderOpenLine from "~icons/mingcute/folder-open-line";
 import MingcuteMore2Line from "~icons/mingcute/more-2-line";
+import MingcuteNewFolderLine from "~icons/mingcute/new-folder-line";
 import MingcutePinFill from "~icons/mingcute/pin-fill";
 import MingcutePinLine from "~icons/mingcute/pin-line";
 import MingcuteRightLine from "~icons/mingcute/right-line";
@@ -199,6 +200,8 @@ export function Sidebar({
 	const [activeDragLabel, setActiveDragLabel] = useState<string | null>(null);
 	const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 	const highlightPath = pendingPath ?? currentPath;
+	const uncompactFolderId =
+		deleteOnCancel?.kind === "folder" ? deleteOnCancel.path : null;
 	const { collapseFolder, expandFolder, rows, toggleFolder } = useSidebarTree({
 		files,
 		folders,
@@ -206,6 +209,7 @@ export function Sidebar({
 		highlightPath,
 		sortMode,
 		storageScope,
+		uncompactFolderId,
 	});
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -857,7 +861,7 @@ export function Sidebar({
 							title="New folder"
 							onClick={() => void createFolder(null)}
 						>
-							<MingcuteFolderOpenLine className="size-3.5" />
+							<MingcuteNewFolderLine className="size-3.5" />
 						</Button>
 					)}
 					<Select.Root
@@ -1422,7 +1426,7 @@ function FolderActionsMenu({
 			)}
 			{onCreateFolder && (
 				<ActionItem
-					icon={<MingcuteFolderOpenLine />}
+					icon={<MingcuteNewFolderLine />}
 					onClick={() => onCreateFolder(id)}
 				>
 					New folder
