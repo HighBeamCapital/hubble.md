@@ -118,11 +118,21 @@
 			{
 				"name": "Markdown Document",
 				"description": "Markdown text file",
-				"ext": [
-					"md",
-					"markdown",
-					"mdown"
-				],
+				"ext": "md",
+				"role": "Editor",
+				"rank": "Owner"
+			},
+			{
+				"name": "Markdown Document",
+				"description": "Markdown text file",
+				"ext": "markdown",
+				"role": "Editor",
+				"rank": "Owner"
+			},
+			{
+				"name": "Markdown Document",
+				"description": "Markdown text file",
+				"ext": "mdown",
 				"role": "Editor",
 				"rank": "Owner"
 			}
