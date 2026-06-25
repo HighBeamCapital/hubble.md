@@ -14,6 +14,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+
+## [0.1.14] - 2026-06-25
+
+### Fixed
 - Creating or renaming nested sidebar folders now keeps the folder tree in the expected shape
 - The HTML Apps walkthrough video now loads in the packaged desktop dialog
 - New task-list items created with Enter now start unchecked
