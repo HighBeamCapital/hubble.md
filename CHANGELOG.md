@@ -8,6 +8,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ## [Unreleased]
 
 ### Added
+- Linux desktop builds (AppImage and Debian package)
+- Native window controls (minimize, maximize, close) on Windows and Linux
 
 ### Changed
 
