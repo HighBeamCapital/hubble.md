@@ -1052,6 +1052,13 @@ function registerIpc() {
 		},
 	);
 
+	ipcMain.handle("desktop:create-folder", async (_event, { path: dirPath }) => {
+		const resolved = resolvePath(dirPath);
+		assertGranted(path.dirname(resolved));
+		await fs.mkdir(resolved);
+		grantRoot(resolved);
+	});
+
 	ipcMain.handle(
 		"desktop:rename-file",
 		async (_event, { fromPath, toPath }) => {
@@ -1123,9 +1130,25 @@ function registerIpc() {
 	ipcMain.handle(
 		"desktop:delete-file",
 		async (_event, { path: filePath, options }) => {
-			await fs.rm(assertGranted(filePath), {
-				recursive: options?.recursive === true,
-			});
+			const resolved = assertGranted(filePath);
+			if (options?.recursive === true) {
+				await fs.rm(resolved, { recursive: true });
+				return;
+			}
+			try {
+				await fs.rm(resolved);
+			} catch (err) {
+				if (
+					err &&
+					typeof err === "object" &&
+					"code" in err &&
+					(err.code === "EISDIR" || err.code === "ERR_FS_EISDIR")
+				) {
+					await fs.rmdir(resolved);
+					return;
+				}
+				throw err;
+			}
 		},
 	);
 

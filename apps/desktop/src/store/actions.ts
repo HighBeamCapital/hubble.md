@@ -187,27 +187,33 @@ async function updateMovedLinks(movedFiles: MovedFile[], files: FileEntry[]) {
 	}
 }
 
-function folderPathsFromFiles(files: FileEntry[]) {
-	const folders = new Set<string>();
+function folderPathsFromEntries(
+	files: FileEntry[],
+	folderEntries: FolderEntry[] = [],
+) {
+	const folderPaths = new Set<string>();
+	for (const folder of folderEntries) {
+		folderPaths.add(folder.path.toLocaleLowerCase());
+	}
 	for (const file of files) {
 		let parent = dirname(file.path);
 		while (parent) {
-			folders.add(parent.toLocaleLowerCase());
+			folderPaths.add(parent.toLocaleLowerCase());
 			const nextParent = dirname(parent);
 			parent = nextParent === parent ? null : nextParent;
 		}
 	}
-	return folders;
+	return folderPaths;
 }
 
 function uniqueMovePath(parent: string, sourcePath: string, isFolder: boolean) {
 	const sourceName = basename(sourcePath);
 	const extension = isFolder ? "" : extname(sourceName);
 	const stem = extension ? sourceName.slice(0, -extension.length) : sourceName;
-	const files = workspaceStore.get().files;
+	const { files, folders } = workspaceStore.get();
 	const existing = new Set([
 		...files.map((file) => file.path.toLocaleLowerCase()),
-		...folderPathsFromFiles(files),
+		...folderPathsFromEntries(files, folders),
 	]);
 	for (let index = 0; ; index++) {
 		const name = index === 0 ? sourceName : `${stem} ${index}${extension}`;
@@ -268,6 +274,19 @@ function uniqueMarkdownPath(parent: string): string {
 	const existing = new Set(files.map((file) => file.path.toLocaleLowerCase()));
 	for (let index = 1; ; index++) {
 		const name = index === 1 ? "new-file.md" : `new-file-${index}.md`;
+		const candidate = joinPath(parent, name);
+		if (!existing.has(candidate.toLocaleLowerCase())) return candidate;
+	}
+}
+
+function uniqueFolderPath(parent: string): string {
+	const { files, folders } = workspaceStore.get();
+	const existing = new Set([
+		...files.map((file) => file.path.toLocaleLowerCase()),
+		...folderPathsFromEntries(files, folders),
+	]);
+	for (let index = 1; ; index++) {
+		const name = index === 1 ? "new-folder" : `new-folder-${index}`;
 		const candidate = joinPath(parent, name);
 		if (!existing.has(candidate.toLocaleLowerCase())) return candidate;
 	}
@@ -529,6 +548,117 @@ export async function renameCurrentMarkdownFile(nextName: string) {
 	await renameMarkdownFile(current.currentPath, nextName);
 }
 
+async function deleteEmptySourceAncestors(
+	sourcePath: string,
+	targetPath: string,
+	workspacePath: string | null,
+) {
+	if (!workspacePath) return;
+	let parent = dirname(sourcePath);
+	while (parent && !pathEquals(parent, workspacePath)) {
+		if (pathEquals(parent, targetPath) || pathInFolder(targetPath, parent)) {
+			return;
+		}
+		try {
+			await desktopApi.deleteFile(parent);
+		} catch (err) {
+			const message = errorMessage(err);
+			if (
+				!missingPathErrorPattern.test(message) &&
+				!/\bENOTEMPTY\b/.test(message)
+			) {
+				throw err;
+			}
+			return;
+		}
+		const nextParent = dirname(parent);
+		parent = nextParent === parent ? null : nextParent;
+	}
+}
+
+export async function renameFolder(
+	path: string,
+	nextName: string,
+	targetPath?: string,
+) {
+	const { files: filesBeforeRename, workspacePath } = workspaceStore.get();
+	const trimmedName = nextName.trim();
+	if (trimmedName.length === 0) return;
+
+	const parent = dirname(path);
+	if (!parent) return;
+
+	const nextPath = normalizePath(targetPath ?? joinPath(parent, trimmedName));
+	if (
+		targetPath &&
+		workspacePath &&
+		!pathInFolder(nextPath, normalizePath(workspacePath))
+	) {
+		return;
+	}
+	if (!isSafeRelativeRenamePath(trimmedName, nextPath, workspacePath)) return;
+	if (nextPath === path) return;
+
+	const current = viewerStore.get();
+	const currentPath = current.currentPath;
+	const currentAffected = currentPath && pathInFolder(currentPath, path);
+	const movedFiles = movedMarkdownFiles(
+		filesBeforeRename,
+		path,
+		nextPath,
+		true,
+	);
+
+	try {
+		if (currentAffected && currentPath) {
+			await savePathContent(currentPath, current.content, { force: true });
+		}
+		await desktopApi.renameFile(path, nextPath);
+		await deleteEmptySourceAncestors(path, nextPath, workspacePath);
+		appStore.set((state) => ({
+			...state,
+			workspace: {
+				...state.workspace,
+				files: state.workspace.files.map((file) => ({
+					...file,
+					path: replacePathPrefix(file.path, path, nextPath),
+				})),
+				folders: state.workspace.folders.map((folder) => ({
+					...folder,
+					path: replacePathPrefix(folder.path, path, nextPath),
+				})),
+				pinnedNotes: state.workspace.pinnedNotes.map((pinnedPath) =>
+					replacePathPrefix(pinnedPath, path, nextPath),
+				),
+				lastOpenedPaths: Object.fromEntries(
+					Object.entries(state.workspace.lastOpenedPaths).map(
+						([workspace, openedPath]) => [
+							workspace,
+							replacePathPrefix(openedPath, path, nextPath),
+						],
+					),
+				),
+			},
+			document: {
+				...state.document,
+				currentPath: state.document.currentPath
+					? replacePathPrefix(state.document.currentPath, path, nextPath)
+					: null,
+				lastOpenedPath: state.document.lastOpenedPath
+					? replacePathPrefix(state.document.lastOpenedPath, path, nextPath)
+					: null,
+			},
+		}));
+		await updateMovedLinks(movedFiles, filesBeforeRename);
+		await syncPinnedNotes();
+		await refreshFiles();
+	} catch (err) {
+		const message = handleFileError(err);
+		toast.error("Failed to rename folder", { description: message });
+		await refreshFiles();
+	}
+}
+
 function isSafeRelativeRenamePath(
 	name: string,
 	nextPath: string,
@@ -655,6 +785,24 @@ export async function createMarkdownFileInFolder(parentPath: string) {
 	} catch (err) {
 		const message = handleFileError(err);
 		toast.error("Failed to create file", { description: message });
+		return null;
+	}
+}
+
+export async function createFolderInFolder(parentPath: string) {
+	const path = uniqueFolderPath(parentPath);
+	try {
+		await desktopApi.createFolder(path);
+		const modified_at = Math.floor(Date.now() / 1000);
+		workspaceStore.set((state) => ({
+			...state,
+			folders: [...state.folders, { path, modified_at }],
+		}));
+		await refreshFiles();
+		return path;
+	} catch (err) {
+		const message = handleFileError(err);
+		toast.error("Failed to create folder", { description: message });
 		return null;
 	}
 }

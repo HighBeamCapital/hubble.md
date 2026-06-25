@@ -10,12 +10,14 @@ import { toast } from "sonner";
 import { desktopApi } from "../desktopApi";
 import { revealFileLabel } from "../lib/revealFile";
 import {
+	createFolderInFolder,
 	createMarkdownFileInFolder,
 	deleteFolder,
 	deleteMarkdownFile,
 	loadPath,
 	moveSidebarItem,
 	openWorkspace,
+	renameFolder,
 	renameMarkdownFile,
 	setSidebarOpen,
 	setSortMode,
@@ -124,10 +126,20 @@ export function Sidebar({
 			}}
 			revealLabel={revealFileLabel(desktopApi.platform)}
 			onRenameFile={(path, nextName) => void renameMarkdownFile(path, nextName)}
+			onRenameFolder={(folderId, nextName, targetDisplayPath) =>
+				void renameFolder(
+					absolutePath(folderId),
+					nextName,
+					absolutePath(targetDisplayPath),
+				)
+			}
 			onDeleteFile={(path) => void deleteMarkdownFile(path)}
 			onTogglePinnedFile={(path) => void togglePinnedNote(path)}
 			onCreateFile={(folderId) =>
 				createMarkdownFileInFolder(absolutePath(folderId))
+			}
+			onCreateFolder={(folderId) =>
+				createFolderInFolder(absolutePath(folderId))
 			}
 			onDeleteFolder={(folderId) => void deleteFolder(absolutePath(folderId))}
 			onMoveItem={({ item, targetFolderId }) =>

@@ -78,6 +78,7 @@ export type DesktopApi = {
 	): Promise<void>;
 	readFileText(path: string): Promise<string>;
 	writeFileText(path: string, content: string): Promise<void>;
+	createFolder(path: string): Promise<void>;
 	renameFile(fromPath: string, toPath: string): Promise<void>;
 	pathExists(path: string): Promise<boolean>;
 	persistPastedImage(
