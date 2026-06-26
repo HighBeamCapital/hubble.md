@@ -16,6 +16,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 - HTML Apps and local images now load correctly on Windows
+- Creating files/folders and revealing them in the file manager now work on Windows (paths are no longer doubled)
 
 ## [0.1.14] - 2026-06-25
 
