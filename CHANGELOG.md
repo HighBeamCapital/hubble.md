@@ -15,6 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+- HTML Apps and local images now load correctly on Windows
 
 ## [0.1.14] - 2026-06-25
 

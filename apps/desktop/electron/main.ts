@@ -354,7 +354,16 @@ function resolvePath(input: string): string {
 	if (input.startsWith("~/") || input.startsWith("~\\")) {
 		return path.resolve(app.getPath("home"), input.slice(2));
 	}
-	return path.resolve(input);
+	// Asset and workspace paths can arrive POSIX-style with a leading slash
+	// before the drive letter (e.g. "/C:/notes" from the forward-slash asset
+	// URLs HTML Apps use as their base). On Windows path.resolve would treat
+	// that as drive-relative and prepend the current drive ("C:\C:\notes"),
+	// breaking the granted-scope check, so strip the leading slash first.
+	const normalized =
+		process.platform === "win32"
+			? input.replace(/^[\\/]+([A-Za-z]:)/, "$1")
+			: input;
+	return path.resolve(normalized);
 }
 
 function grantFile(filePath: string) {
