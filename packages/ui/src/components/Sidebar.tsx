@@ -154,7 +154,7 @@ export function applySidebarSelection({
 	};
 }
 
-export function pruneSidebarSelection(
+function pruneSidebarSelection(
 	selection: SidebarSelectionState,
 	rows: SidebarRow[],
 ): SidebarSelectionState {
@@ -199,22 +199,12 @@ export function sidebarMoveCandidateFromRow(
 			};
 }
 
-export function sidebarMoveItemFromCandidate(
+function sidebarMoveItemFromCandidate(
 	candidate: SidebarMoveCandidate,
 ): SidebarMoveItem {
 	return candidate.kind === "file"
 		? { kind: "file", path: candidate.path }
 		: { kind: "folder", folderId: candidate.folderId };
-}
-
-export function filterValidSidebarMoveCandidates(
-	candidates: SidebarMoveCandidate[],
-	targetFolderId: string | null,
-): SidebarMoveCandidate[] {
-	const validCandidates = candidates.filter(
-		(candidate) => !isInvalidMove(candidate, targetFolderId),
-	);
-	return removeDescendantMoveCandidates(validCandidates);
 }
 
 export function sidebarMoveItemsForDrag({
@@ -238,10 +228,12 @@ export function sidebarMoveItemsForDrag({
 						candidate !== null && selectedKeys.has(candidate.key),
 				)
 		: [draggedItem];
-	return filterValidSidebarMoveCandidates(
-		selectedCandidates,
-		targetFolderId,
-	).map(sidebarMoveItemFromCandidate);
+	const validCandidates = selectedCandidates.filter(
+		(candidate) => !isInvalidMove(candidate, targetFolderId),
+	);
+	return removeDescendantMoveCandidates(validCandidates).map(
+		sidebarMoveItemFromCandidate,
+	);
 }
 
 function removeDescendantMoveCandidates(
