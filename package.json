@@ -20,6 +20,7 @@
 		"build:desktop": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop... --if-present typecheck",
 		"bundle:desktop:mac": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop bundle:mac",
 		"bundle:desktop:win": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop bundle:win",
+		"bundle:desktop:win:arm64": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop bundle:win:arm64",
 		"bundle:desktop:linux": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop bundle:linux",
 		"bundle:desktop:linux:arm64": "pnpm --filter @hubble.md/desktop... --if-present build && pnpm --filter @hubble.md/desktop bundle:linux:arm64",
 		"postinstall": "pnpm --filter @hubble.md/desktop exec install-electron",

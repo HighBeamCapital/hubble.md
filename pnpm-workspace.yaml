@@ -2,6 +2,12 @@ packages:
   - apps/*
   - packages/*
 
+supportedArchitectures:
+  cpu:
+    - current
+    - x64
+    - arm64
+
 onlyBuiltDependencies:
   - electron-winstaller
   - esbuild

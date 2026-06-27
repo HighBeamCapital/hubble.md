@@ -125,8 +125,14 @@ jobs:
           pnpm --filter @hubble.md/desktop exec electron-builder --linux --${{ matrix.arch }} --publish always
 
   release-windows:
-    name: Build and publish desktop app (Windows)
+    name: Build and publish desktop app (Windows ${{ matrix.arch }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x64
+          - arm64
     permissions:
       contents: write
 
@@ -166,4 +172,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           pnpm --filter @hubble.md/desktop... --if-present build
-          pnpm --filter @hubble.md/desktop exec electron-builder --win --publish always
+          pnpm --filter @hubble.md/desktop exec electron-builder --win --${{ matrix.arch }} --publish always
