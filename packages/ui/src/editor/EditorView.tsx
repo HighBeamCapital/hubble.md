@@ -1,5 +1,6 @@
 import {
 	combineMarkdownFrontMatter,
+	FindExtension,
 	HeadingExtension,
 	LinkExtension,
 	listExtensions,
@@ -31,6 +32,7 @@ import {
 	FilePropertiesPanel,
 	frontMatterStateFromMarkdown,
 } from "./FilePropertiesPanel";
+import { FindBar } from "./FindBar";
 import { FormatCommandMenu } from "./FormatCommandMenu";
 import { FormattingStatusBar } from "./FormattingStatusBar";
 import type { VirtualCursorMode } from "./virtualCursorMode";
@@ -135,6 +137,7 @@ export function EditorView({
 			SmartLinkExtension,
 			LinkClickExtension.configure({ onOpenExternalLink, onOpenWikiLink }),
 			LinkCreationGhostExtension,
+			FindExtension,
 			HeadingExtension,
 			MarkdownRolloverExtension,
 			StrikethroughShortcutExtension,
@@ -279,6 +282,7 @@ export function EditorView({
 				<SlashCommandMenu editor={editor} viewportRef={editorViewportRef} />
 				<FormatCommandMenu editor={editor} viewportRef={editorViewportRef} />
 			</div>
+			<FindBar editor={editor} />
 			<FormattingStatusBar editor={editor} scrollContainer={editorViewportEl} />
 		</div>
 	);
