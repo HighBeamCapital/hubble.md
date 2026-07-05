@@ -1,5 +1,9 @@
 import { Menu } from "@base-ui/react/menu";
-import { Button, Toolbar as SharedToolbar } from "@hubble.md/ui";
+import {
+	Button,
+	formatShortcut,
+	Toolbar as SharedToolbar,
+} from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -105,7 +109,7 @@ function NoteActionsMenu({ path }: { path: string }) {
 							<span className="min-w-0 flex-1">
 								{revealFileLabel(desktopApi.platform)}
 							</span>
-							<ShortcutHint>⌘⌥R</ShortcutHint>
+							<ShortcutHint>{formatShortcut("CmdOrCtrl+Alt+R")}</ShortcutHint>
 						</Menu.Item>
 						<Menu.Item
 							className="flex w-full cursor-pointer items-center gap-2 rounded-sm [padding-block:0.375rem] [padding-inline:0.5rem] text-start text-[11px] outline-hidden select-none data-highlighted:bg-accent"
@@ -113,7 +117,7 @@ function NoteActionsMenu({ path }: { path: string }) {
 						>
 							<MingcuteCopy2Line className="size-3 shrink-0" />
 							<span className="min-w-0 flex-1">Copy file path</span>
-							<ShortcutHint>⌘⇧C</ShortcutHint>
+							<ShortcutHint>{formatShortcut("CmdOrCtrl+Shift+C")}</ShortcutHint>
 						</Menu.Item>
 					</Menu.Popup>
 				</Menu.Positioner>

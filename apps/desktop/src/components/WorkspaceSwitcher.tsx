@@ -1,4 +1,4 @@
-import { WorkspaceSwitcherMenu } from "@hubble.md/ui";
+import { formatShortcut, WorkspaceSwitcherMenu } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import MingcuteAddLine from "~icons/mingcute/add-line";
 import { openWorkspace, setWorkspaceSwitcherOpen } from "../store/actions";
@@ -23,7 +23,7 @@ export function WorkspaceSwitcher() {
 	return (
 		<WorkspaceSwitcherMenu
 			label={workspaceName}
-			title={workspacePath}
+			title={`${workspacePath} (${formatShortcut("CmdOrCtrl+Shift+O")})`}
 			open={open}
 			onOpenChange={setWorkspaceSwitcherOpen}
 		>
@@ -43,7 +43,13 @@ export function WorkspaceSwitcher() {
 				icon={<MingcuteAddLine className="size-3 shrink-0" />}
 				onClick={() => void openWorkspace()}
 			>
-				Add folder...
+				<span className="flex-1">Add folder...</span>
+				<span
+					className="ms-auto shrink-0 text-[11px] leading-none text-muted-foreground/60"
+					aria-hidden="true"
+				>
+					{formatShortcut("CmdOrCtrl+Shift+N")}
+				</span>
 			</WorkspaceSwitcherMenu.Item>
 		</WorkspaceSwitcherMenu>
 	);

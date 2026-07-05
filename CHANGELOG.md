@@ -11,6 +11,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 - Add table support. Markdown tables now render as expected, and you can create new tables using `/table`. There are still editing features left to add, like adding and removing rows. Track progress on GitHub: [#99](https://github.com/bholmesdev/hubble.md/issues/99)
 
 ### Changed
+- Keyboard shortcut hints now show the correct keys on Windows and Linux (Ctrl/Alt instead of macOS symbols)
+- More buttons and menus now show their keyboard shortcut, including the format and slash command menus
 
 ### Fixed
 - Desktop saves no longer drop trailing content in notes with multibyte characters
