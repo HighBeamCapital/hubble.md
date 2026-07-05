@@ -10,6 +10,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Added
 
 ### Changed
+- Keyboard shortcut hints now show the correct keys on Windows and Linux (Ctrl/Alt instead of macOS symbols)
+- More buttons and menus now show their keyboard shortcut, including the format and slash command menus
 
 ### Fixed
 
