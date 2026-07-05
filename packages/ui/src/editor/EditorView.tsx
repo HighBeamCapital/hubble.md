@@ -44,6 +44,11 @@ import type { VirtualCursorMode } from "./virtualCursorMode";
 
 const DEFAULT_SAVE_DEBOUNCE_MS = 120;
 
+// Markdown table cells should not hold block content, so cells allow exactly one
+// paragraph (line breaks serialize as <br>)
+const InlineTableCell = TableCell.extend({ content: "paragraph" });
+const InlineTableHeader = TableHeader.extend({ content: "paragraph" });
+
 export type { WikiTarget };
 
 export type EditorViewProps = {
@@ -151,8 +156,8 @@ export function EditorView({
 			TaskItem.configure({ nested: true }),
 			Table.configure({ resizable: true }),
 			TableRow,
-			TableHeader,
-			TableCell,
+			InlineTableHeader,
+			InlineTableCell,
 			TableCellSelectionExtension,
 		],
 		content: initialDoc,

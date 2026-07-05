@@ -120,6 +120,9 @@ const SLASH_COMMANDS: SlashCommand[] = [
 	},
 ];
 
+// Table cells only hold inline content, so block commands are hidden there.
+const INLINE_COMMANDS = new Set<SlashCommandKind>(["strike"]);
+
 export function SlashCommandMenu({
 	editor,
 	viewportRef,
@@ -134,8 +137,11 @@ export function SlashCommandMenu({
 	const suppressedFromRef = useRef<number | null>(null);
 	const positionedFromRef = useRef<number | null>(null);
 	const menuRef = useRef<HTMLDivElement | null>(null);
-	const visibleCommands = SLASH_COMMANDS.filter((command) =>
-		matchesCommand(command, token?.query ?? ""),
+	const insideTable = editor?.isActive("table") ?? false;
+	const visibleCommands = SLASH_COMMANDS.filter(
+		(command) =>
+			matchesCommand(command, token?.query ?? "") &&
+			(!insideTable || INLINE_COMMANDS.has(command.kind)),
 	);
 	// Keep selection visible even when the current query filters out the
 	// previously selected command.
