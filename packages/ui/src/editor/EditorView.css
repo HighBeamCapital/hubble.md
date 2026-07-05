@@ -527,7 +527,9 @@
 }
 
 [data-hubble-editor] .ProseMirror table {
-	border-collapse: collapse;
+	border-collapse: separate;
+	border-spacing: 0;
+	border-radius: var(--radius);
 	table-layout: fixed;
 	inline-size: 100%;
 	margin-block: var(--editor-gap);
@@ -542,6 +544,30 @@
 	vertical-align: top;
 	box-sizing: border-box;
 	position: relative;
+}
+
+[data-hubble-editor] .ProseMirror tr:not(:first-child) :is(td, th) {
+	border-block-start: 0;
+}
+
+[data-hubble-editor] .ProseMirror :is(td, th):not(:first-child) {
+	border-inline-start: 0;
+}
+
+[data-hubble-editor] .ProseMirror tr:first-child :is(td, th):first-child {
+	border-start-start-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:first-child :is(td, th):last-child {
+	border-start-end-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:last-child :is(td, th):first-child {
+	border-end-start-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:last-child :is(td, th):last-child {
+	border-end-end-radius: var(--radius);
 }
 
 [data-hubble-editor] .ProseMirror th {
