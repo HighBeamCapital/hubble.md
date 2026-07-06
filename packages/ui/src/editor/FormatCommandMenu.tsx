@@ -23,6 +23,7 @@ import MingcuteListOrderedLine from "~icons/mingcute/list-ordered-line";
 import MingcuteQuoteLeftLine from "~icons/mingcute/quote-left-line";
 import MingcuteStrikethroughLine from "~icons/mingcute/strikethrough-line";
 import MingcuteTextLine from "~icons/mingcute/text-line";
+import { formatShortcut } from "../lib/shortcut";
 import { cn } from "../lib/utils";
 import { useCommandMenuPosition } from "./commandMenuPosition";
 
@@ -48,6 +49,9 @@ type FormatCommand = {
 	aliases: string[];
 	icon: ComponentType<{ className?: string }>;
 	group: "Block" | "Inline";
+	// Platform-agnostic accelerator spec (e.g. "CmdOrCtrl+Shift+8"), rendered
+	// per-platform via formatShortcut. Omit when the command has no shortcut.
+	shortcut?: string;
 };
 
 type MenuPosition = {
@@ -95,6 +99,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["bullet", "bullets", "ul", "list"],
 		icon: MingcuteListCheckLine,
 		group: "Block",
+		shortcut: "CmdOrCtrl+Shift+8",
 	},
 	{
 		kind: "orderedList",
@@ -103,6 +108,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["number", "numbered", "ol", "1."],
 		icon: MingcuteListOrderedLine,
 		group: "Block",
+		shortcut: "CmdOrCtrl+Shift+7",
 	},
 	{
 		kind: "taskList",
@@ -111,6 +117,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["todo", "task", "check", "checkbox"],
 		icon: MingcuteListCheck2Line,
 		group: "Block",
+		shortcut: "CmdOrCtrl+Shift+9",
 	},
 	{
 		kind: "blockquote",
@@ -135,6 +142,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["strong", "b"],
 		icon: MingcuteBoldLine,
 		group: "Inline",
+		shortcut: "CmdOrCtrl+B",
 	},
 	{
 		kind: "italic",
@@ -143,6 +151,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["emphasis", "i"],
 		icon: MingcuteItalicLine,
 		group: "Inline",
+		shortcut: "CmdOrCtrl+I",
 	},
 	{
 		kind: "strike",
@@ -151,6 +160,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["strike", "s", "delete"],
 		icon: MingcuteStrikethroughLine,
 		group: "Inline",
+		shortcut: "CmdOrCtrl+Shift+X",
 	},
 	{
 		kind: "link",
@@ -159,6 +169,7 @@ const FORMAT_COMMANDS: FormatCommand[] = [
 		aliases: ["url", "href", "wiki"],
 		icon: MingcuteLinkLine,
 		group: "Inline",
+		shortcut: "CmdOrCtrl+K",
 	},
 ];
 
@@ -313,9 +324,16 @@ function renderGroup(
 						<span className="block min-w-0 flex-1 truncate text-foreground">
 							{command.title}
 						</span>
-						{isApplied && (
+						{isApplied ? (
 							<MingcuteCheckLine className="size-3.5 shrink-0 text-muted-foreground" />
-						)}
+						) : command.shortcut ? (
+							<span
+								className="shrink-0 text-[10px] leading-none text-muted-foreground/60"
+								aria-hidden="true"
+							>
+								{formatShortcut(command.shortcut)}
+							</span>
+						) : null}
 					</Command.Item>
 				);
 			})}

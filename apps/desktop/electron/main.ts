@@ -1124,10 +1124,16 @@ function registerIpc() {
 
 	ipcMain.handle(
 		"desktop:write-file-text",
-		async (_event, { path: filePath, content }) => {
+		async (_event, { path: filePath, bytes }) => {
 			const resolved = assertGranted(filePath);
+			if (!Array.isArray(bytes)) {
+				throw new Error("write-file-text requires encoded bytes");
+			}
 			await fs.mkdir(path.dirname(resolved), { recursive: true });
-			await fs.writeFile(resolved, String(content));
+			// Text is encoded in preload. Main only writes bytes so it cannot
+			// accidentally shorten UTF-8 content while crossing string encoders.
+			// See https://github.com/bholmesdev/hubble.md/issues/126 for the repro.
+			await fs.writeFile(resolved, Uint8Array.from(bytes));
 		},
 	);
 

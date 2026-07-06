@@ -12,6 +12,10 @@ import {
 } from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
 import { TaskItem } from "@tiptap/extension-list";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import {
 	EditorContent,
 	type EditorOptions,
@@ -26,6 +30,7 @@ import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { SmartLinkExtension } from "./SmartLinkExtension";
+import { TableCellSelectionExtension } from "./TableCellSelectionExtension";
 import { VirtualCursor } from "./VirtualCursor";
 import "./EditorView.css";
 import {
@@ -38,6 +43,11 @@ import { FormattingStatusBar } from "./FormattingStatusBar";
 import type { VirtualCursorMode } from "./virtualCursorMode";
 
 const DEFAULT_SAVE_DEBOUNCE_MS = 120;
+
+// Markdown table cells should not hold block content, so cells allow exactly one
+// paragraph (line breaks serialize as <br>)
+const InlineTableCell = TableCell.extend({ content: "paragraph" });
+const InlineTableHeader = TableHeader.extend({ content: "paragraph" });
 
 export type { WikiTarget };
 
@@ -144,6 +154,11 @@ export function EditorView({
 			...listExtensions,
 			...extensions,
 			TaskItem.configure({ nested: true }),
+			Table.configure({ resizable: true }),
+			TableRow,
+			InlineTableHeader,
+			InlineTableCell,
+			TableCellSelectionExtension,
 		],
 		content: initialDoc,
 		onUpdate: ({ editor: current }) => {

@@ -46,6 +46,7 @@ import {
 	splitFileName,
 } from "../lib/filePath";
 import { shouldShowFooterDivider } from "../lib/scrollOverflow";
+import { formatShortcut } from "../lib/shortcut";
 import { cn } from "../lib/utils";
 import { Button } from "../primitives/button";
 import { useSidebarKeyboardNav } from "./useSidebarKeyboardNav";
@@ -1706,7 +1707,7 @@ function NewFileMenu({
 						<ActionItem
 							icon={<MingcuteEditLine />}
 							onClick={onCreateFile}
-							shortcut="⌘N"
+							shortcut={formatShortcut("CmdOrCtrl+N")}
 						>
 							New Note
 						</ActionItem>
@@ -1756,7 +1757,7 @@ function FolderActionsMenu({
 				<ActionItem
 					icon={<MingcuteFolderOpenLine />}
 					onClick={() => onRevealFolder(id)}
-					shortcut="⌘⌥R"
+					shortcut={formatShortcut("CmdOrCtrl+Alt+R")}
 				>
 					{revealLabel ?? "Reveal in File Manager"}
 				</ActionItem>
@@ -1765,6 +1766,7 @@ function FolderActionsMenu({
 				<ActionItem
 					icon={<MingcuteEditLine />}
 					onClick={() => onCreateFile(id)}
+					shortcut={formatShortcut("CmdOrCtrl+N")}
 				>
 					New file
 				</ActionItem>
@@ -1839,7 +1841,7 @@ function FileActionsMenu({
 				<ActionItem
 					icon={<MingcuteFolderOpenLine />}
 					onClick={() => onRevealFile(file.path)}
-					shortcut="⌘⌥R"
+					shortcut={formatShortcut("CmdOrCtrl+Alt+R")}
 				>
 					{revealLabel ?? "Reveal in File Manager"}
 				</ActionItem>
@@ -1848,7 +1850,7 @@ function FileActionsMenu({
 				<ActionItem
 					icon={<MingcuteCopy2Line />}
 					onClick={() => onCopyFilePath(file.path)}
-					shortcut="⌘⇧C"
+					shortcut={formatShortcut("CmdOrCtrl+Shift+C")}
 				>
 					Copy file path
 				</ActionItem>
