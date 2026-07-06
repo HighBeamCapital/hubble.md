@@ -98,7 +98,7 @@ function NoteActionsMenu({
 	path: string;
 	canChatAboutNote: boolean;
 }) {
-	const viewMode = useStoreValue(viewerStore).viewMode;
+	const { viewMode } = useStoreValue(viewerStore);
 	const isSourceMode = viewMode === "source";
 
 	async function revealFile() {
@@ -137,7 +137,7 @@ function NoteActionsMenu({
 							>
 								<MingcuteTerminalLine className="size-3 shrink-0" />
 								<span className="min-w-0 flex-1">Chat about this note</span>
-								<ShortcutHint>⌘⇧J</ShortcutHint>
+								<ShortcutHint spec="CmdOrCtrl+Shift+J" />
 							</Menu.Item>
 						)}
 						{hasMarkdownExtension(path) && (
@@ -149,6 +149,7 @@ function NoteActionsMenu({
 								<span className="min-w-0 flex-1">
 									{isSourceMode ? "Edit rich text" : "Edit source"}
 								</span>
+								<ShortcutHint spec="Alt+CmdOrCtrl+U" />
 							</Menu.Item>
 						)}
 						<Menu.Item
@@ -159,7 +160,7 @@ function NoteActionsMenu({
 							<span className="min-w-0 flex-1">
 								{revealFileLabel(desktopApi.platform)}
 							</span>
-							<ShortcutHint>{formatShortcut("CmdOrCtrl+Alt+R")}</ShortcutHint>
+							<ShortcutHint spec="CmdOrCtrl+Alt+R" />
 						</Menu.Item>
 						<Menu.Item
 							className="flex w-full cursor-pointer items-center gap-2 rounded-sm [padding-block:0.375rem] [padding-inline:0.5rem] text-start text-[11px] outline-hidden select-none data-highlighted:bg-accent"
@@ -167,7 +168,7 @@ function NoteActionsMenu({
 						>
 							<MingcuteCopy2Line className="size-3 shrink-0" />
 							<span className="min-w-0 flex-1">Copy file path</span>
-							<ShortcutHint>{formatShortcut("CmdOrCtrl+Shift+C")}</ShortcutHint>
+							<ShortcutHint spec="CmdOrCtrl+Shift+C" />
 						</Menu.Item>
 					</Menu.Popup>
 				</Menu.Positioner>
@@ -176,13 +177,15 @@ function NoteActionsMenu({
 	);
 }
 
-function ShortcutHint({ children }: { children: string }) {
+// Takes the "CmdOrCtrl+..." accelerator spec, not a display string, so call
+// sites can't hardcode platform-specific glyphs.
+function ShortcutHint({ spec }: { spec: string }) {
 	return (
 		<span
 			className="ms-auto shrink-0 text-[11px] leading-none text-muted-foreground/60"
 			aria-hidden="true"
 		>
-			{children}
+			{formatShortcut(spec)}
 		</span>
 	);
 }
