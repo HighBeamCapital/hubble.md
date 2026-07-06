@@ -186,6 +186,61 @@ describe("TerminalPanel", () => {
 		expect(api.terminalStart).toHaveBeenCalledWith("/workspace-a");
 	});
 
+	it("drops a session that finishes starting after a workspace switch", async () => {
+		const { api } = createDesktopApi();
+		const { appStore, TerminalPanel } = await loadTerminalPanel(api);
+
+		let resolveStaleStart: (sessionId: string) => void = () => {};
+		api.terminalStart.mockImplementationOnce(
+			() =>
+				new Promise<string>((resolve) => {
+					resolveStaleStart = resolve;
+				}),
+		);
+
+		appStore.set((state) => ({
+			...state,
+			workspace: {
+				...state.workspace,
+				workspacePath: "/workspace-a",
+			},
+			ui: {
+				...state.ui,
+				isTerminalOpen: true,
+			},
+		}));
+
+		await act(async () => {
+			root.render(<TerminalPanel />);
+			await flush();
+		});
+		expect(api.terminalStart).toHaveBeenNthCalledWith(1, "/workspace-a");
+
+		// Switch workspaces while the first shell is still starting.
+		await act(async () => {
+			appStore.set((state) => ({
+				...state,
+				workspace: {
+					...state.workspace,
+					workspacePath: "/workspace-b",
+				},
+			}));
+			await flush();
+		});
+
+		await act(async () => {
+			resolveStaleStart("term-stale");
+			await flush();
+		});
+
+		expect(api.terminalStop).toHaveBeenCalledWith("term-stale");
+		expect(api.terminalStart).toHaveBeenNthCalledWith(2, "/workspace-b");
+		const sessionTitles = getSessionButtons(container).map(
+			(button) => button.textContent,
+		);
+		expect(sessionTitles).toEqual(["bash"]);
+	});
+
 	it("tears down prior sessions when switching workspaces", async () => {
 		const desktop = createDesktopApi();
 		const { api, emitExit } = desktop;

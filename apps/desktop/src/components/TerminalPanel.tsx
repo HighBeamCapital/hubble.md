@@ -233,13 +233,25 @@ export function TerminalPanel() {
 	}, [isOpen, sessions.length, workspacePath]);
 
 	const handleNewSession = async () => {
-		if (!workspacePath) return;
 		try {
-			const sessionId = await desktopApi.terminalStart(workspacePath);
-			dispatch({
-				type: "add",
-				session: { id: sessionId, title: "bash" },
-			});
+			while (true) {
+				const requestedWorkspacePath = workspacePathStore.get();
+				if (!requestedWorkspacePath) return;
+				const sessionId = await desktopApi.terminalStart(
+					requestedWorkspacePath,
+				);
+				if (workspacePathStore.get() === requestedWorkspacePath) {
+					dispatch({
+						type: "add",
+						session: { id: sessionId, title: "bash" },
+					});
+					return;
+				}
+				// The workspace changed while this shell booted. Adopting it would
+				// show a shell cwd'd to the old workspace, so drop it and retry.
+				void desktopApi.terminalStop(sessionId);
+				if (!terminalOpenStore.get()) return;
+			}
 		} finally {
 			isInitializingRef.current = false;
 		}
