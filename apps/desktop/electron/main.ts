@@ -626,6 +626,35 @@ function responseForAsset(filePath: string) {
 	});
 }
 
+type TextContextMenuItem = {
+	role: "cut" | "copy" | "paste" | "selectAll";
+	flag: keyof Electron.EditFlags;
+};
+
+const textContextMenuItems: TextContextMenuItem[] = [
+	{ role: "cut", flag: "canCut" },
+	{ role: "copy", flag: "canCopy" },
+	{ role: "paste", flag: "canPaste" },
+	{ role: "selectAll", flag: "canSelectAll" },
+];
+
+function buildTextContextMenu(params: Electron.ContextMenuParams) {
+	const template: Electron.MenuItemConstructorOptions[] =
+		textContextMenuItems.map((item) => ({
+			role: item.role,
+			enabled: params.editFlags[item.flag],
+		}));
+
+	return Menu.buildFromTemplate(template);
+}
+
+function registerTextContextMenu(window: BrowserWindow) {
+	window.webContents.on("context-menu", (_event, params) => {
+		if (!params.isEditable) return;
+		buildTextContextMenu(params).popup({ window });
+	});
+}
+
 function buildMenu() {
 	const template: Electron.MenuItemConstructorOptions[] = [
 		{
@@ -1002,6 +1031,7 @@ async function createWindow() {
 		},
 	});
 	mainWindow = window;
+	registerTextContextMenu(window);
 	if (windowState.isFullScreen) {
 		window.setFullScreen(true);
 	} else if (windowState.isMaximized) {
