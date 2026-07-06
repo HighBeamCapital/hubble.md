@@ -109,6 +109,8 @@ const desktopApi = {
 		subscribe("desktop:menu-sync-workspace", callback),
 	onMenuToggleTerminal: (callback) =>
 		subscribe("desktop:menu-toggle-terminal", callback),
+	onMenuToggleSourceMode: (callback) =>
+		subscribe("desktop:menu-toggle-source-mode", callback),
 	onWindowFocus: (callback) => subscribe("desktop:window-focus", callback),
 	onFullScreenChange: (callback) =>
 		subscribe("desktop:fullscreen-change", (isFullScreen: boolean) =>

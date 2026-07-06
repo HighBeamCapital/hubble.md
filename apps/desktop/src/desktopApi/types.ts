@@ -40,6 +40,7 @@ export type Unsubscribe = () => void;
 
 export type MenuState = {
 	hasWorkspace: boolean;
+	hasMarkdownNoteOpen: boolean;
 	isSourceMode: boolean;
 };
 
@@ -135,6 +136,7 @@ export type DesktopApi = {
 	onMenuShowWorkspaceSwitcher(callback: () => void): Unsubscribe;
 	onMenuSyncWorkspace(callback: () => void): Unsubscribe;
 	onMenuToggleTerminal(callback: () => void): Unsubscribe;
+	onMenuToggleSourceMode(callback: () => void): Unsubscribe;
 	onWindowFocus(callback: () => void): Unsubscribe;
 	onFullScreenChange(callback: (isFullScreen: boolean) => void): Unsubscribe;
 

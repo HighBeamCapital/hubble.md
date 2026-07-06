@@ -53,6 +53,7 @@ import {
 	savePathContent,
 	setChatCommand,
 	setSidebarOpen,
+	setViewerMode,
 	setWorkspaceSwitcherOpen,
 	toggleTerminal,
 	updateEditorContent,
@@ -192,11 +193,14 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		const currentPath = state.currentPath;
 		void desktopApi.setMenuState({
 			hasWorkspace,
+			hasMarkdownNoteOpen:
+				typeof currentPath === "string" && hasMarkdownExtension(currentPath),
 			isSourceMode: state.viewMode === "source",
 		});
-	}, [hasWorkspace, state.viewMode]);
+	}, [hasWorkspace, state.currentPath, state.viewMode]);
 
 	useEffect(() => {
 		if (!sidebarOpen) setFocusedSidebarPath(null);
@@ -289,6 +293,16 @@ function App() {
 			),
 			desktopApi.onMenuSyncWorkspace(() => void refreshFiles()),
 			desktopApi.onMenuToggleTerminal(() => toggleTerminal()),
+			desktopApi.onMenuToggleSourceMode(() => {
+				const current = viewerStore.get();
+				if (
+					!current.currentPath ||
+					!hasMarkdownExtension(current.currentPath)
+				) {
+					return;
+				}
+				setViewerMode(current.viewMode === "source" ? "rich" : "source");
+			}),
 		];
 		return () => {
 			for (const dispose of disposers) dispose();
