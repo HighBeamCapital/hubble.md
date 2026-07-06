@@ -41,6 +41,7 @@ import {
 	sidebarOpenStore,
 	switcherOpenStore,
 	uiStore,
+	type ViewMode,
 	viewerStore,
 	withOpenedDoc,
 	workspaceStore,
@@ -465,6 +466,13 @@ export function updateEditorContent(path: string, content: string) {
 			status: "ready",
 			error: null,
 		};
+	});
+}
+
+export function setViewerMode(viewMode: ViewMode) {
+	viewerStore.set((state) => {
+		if (state.viewMode === viewMode) return state;
+		return { ...state, viewMode };
 	});
 }
 

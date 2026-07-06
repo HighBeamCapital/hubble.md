@@ -7,23 +7,26 @@ import {
 import { useStoreValue } from "@simplestack/store/react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { toast } from "sonner";
+import MingcuteCodeLine from "~icons/mingcute/code-line";
 import MingcuteCopy2Line from "~icons/mingcute/copy-2-line";
 import MingcuteFolderOpenLine from "~icons/mingcute/folder-open-line";
 import MingcuteMore2Line from "~icons/mingcute/more-2-line";
 import MingcuteTerminalLine from "~icons/mingcute/terminal-line";
 import { desktopApi } from "../desktopApi";
 import { copyText } from "../lib/clipboard";
+import { hasMarkdownExtension } from "../lib/filePath";
 import { revealFileLabel } from "../lib/revealFile";
 import {
 	renameCurrentMarkdownFile,
 	requestChatAboutNote,
+	setViewerMode,
 	toggleSidebar,
 	toggleTerminal,
 } from "../store/actions";
 import {
 	currentPathStore,
 	sidebarOpenStore,
-	workspacePathStore,
+	viewerStore,
 } from "../store/state";
 
 const dragRegionStyle = {
@@ -47,7 +50,6 @@ export function Toolbar({
 	scrollContainer: HTMLDivElement | null;
 	showSidebarBadge?: boolean;
 }) {
-	const workspacePath = useStoreValue(workspacePathStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const currentPath = useStoreValue(currentPathStore);
 	const isFullScreen = useIsFullScreen();
@@ -75,9 +77,7 @@ export function Toolbar({
 					>
 						<MingcuteTerminalLine className="size-3.5" />
 					</Button>
-					{workspacePath && currentPath && (
-						<NoteActionsMenu path={currentPath} />
-					)}
+					{currentPath && <NoteActionsMenu path={currentPath} />}
 				</div>
 			}
 		/>
@@ -85,6 +85,9 @@ export function Toolbar({
 }
 
 function NoteActionsMenu({ path }: { path: string }) {
+	const viewMode = useStoreValue(viewerStore).viewMode;
+	const isSourceMode = viewMode === "source";
+
 	async function revealFile() {
 		try {
 			await desktopApi.revealFile(path);
@@ -122,6 +125,17 @@ function NoteActionsMenu({ path }: { path: string }) {
 							<span className="min-w-0 flex-1">Chat about this note</span>
 							<ShortcutHint>⌘⇧J</ShortcutHint>
 						</Menu.Item>
+						{hasMarkdownExtension(path) && (
+							<Menu.Item
+								className="flex w-full cursor-pointer items-center gap-2 rounded-sm [padding-block:0.375rem] [padding-inline:0.5rem] text-start text-[11px] outline-hidden select-none data-highlighted:bg-accent"
+								onClick={() => setViewerMode(isSourceMode ? "rich" : "source")}
+							>
+								<MingcuteCodeLine className="size-3 shrink-0" />
+								<span className="min-w-0 flex-1">
+									{isSourceMode ? "Edit rich text" : "Edit source"}
+								</span>
+							</Menu.Item>
+						)}
 						<Menu.Item
 							className="flex w-full cursor-pointer items-center gap-2 rounded-sm [padding-block:0.375rem] [padding-inline:0.5rem] text-start text-[11px] outline-hidden select-none data-highlighted:bg-accent"
 							onClick={() => void revealFile()}

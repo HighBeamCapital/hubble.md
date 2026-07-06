@@ -4,6 +4,7 @@ import {
 	classifyHref,
 	EditorView,
 	Input,
+	MarkdownSourceEditor,
 	type WikiTarget,
 } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
@@ -60,6 +61,7 @@ import {
 	chatCommandStore,
 	sidebarOpenStore,
 	uiStore,
+	type ViewMode,
 	viewerStore,
 	workspacePathStore,
 	workspaceStore,
@@ -394,6 +396,7 @@ function App() {
 									path={state.currentPath}
 									content={state.content}
 									copyAsMarkdownRequest={copyAsMarkdownRequest}
+									viewMode={state.viewMode}
 									onScrollContainerChange={setScrollContainerEl}
 								/>
 							</div>
@@ -443,11 +446,13 @@ function DocumentViewer({
 	path,
 	content,
 	copyAsMarkdownRequest,
+	viewMode,
 	onScrollContainerChange,
 }: {
 	path: string;
 	content: string;
 	copyAsMarkdownRequest: number;
+	viewMode: ViewMode;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
 }) {
 	if (hasHtmlExtension(path)) {
@@ -464,13 +469,26 @@ function DocumentViewer({
 	}
 
 	return (
-		<MarkdownEditor
-			key={`${path}:${HMR_REV}`}
-			path={path}
-			initialMarkdown={content}
-			copyAsMarkdownRequest={copyAsMarkdownRequest}
-			onScrollContainerChange={onScrollContainerChange}
-		/>
+		<>
+			{viewMode === "source" ? (
+				<MarkdownSourceEditor
+					key={`${path}:source:${HMR_REV}`}
+					path={path}
+					initialMarkdown={content}
+					onLocalChange={updateEditorContent}
+					onSave={savePathContent}
+					onScrollContainerChange={onScrollContainerChange}
+				/>
+			) : (
+				<MarkdownEditor
+					key={`${path}:rich:${HMR_REV}`}
+					path={path}
+					initialMarkdown={content}
+					copyAsMarkdownRequest={copyAsMarkdownRequest}
+					onScrollContainerChange={onScrollContainerChange}
+				/>
+			)}
+		</>
 	);
 }
 

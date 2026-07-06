@@ -302,6 +302,30 @@
 	transition: opacity 160ms var(--ease-snappy);
 }
 
+[data-hubble-source-editor] .editorViewport {
+	padding-block: var(--editor-padding-block, 1.25rem);
+}
+
+[data-hubble-source-editor] .ProseMirror {
+	min-block-size: 100%;
+}
+
+[data-hubble-source-editor] .ProseMirror > .react-renderer.node-codeBlock {
+	margin-block: 0;
+}
+
+[data-hubble-source-editor] .pm-code-block {
+	min-block-size: 100%;
+}
+
+[data-hubble-source-editor] .pm-code-block-controls {
+	display: none;
+}
+
+[data-hubble-source-editor] .ProseMirror pre {
+	min-block-size: inherit;
+}
+
 [data-hubble-editor]
 	.react-renderer.node-codeBlock:hover
 	.pm-code-block-controls {

@@ -18,6 +18,7 @@ export type FileEntry = {
 export type FolderEntry = FileEntry;
 
 type ViewerStatus = "idle" | "loading" | "ready" | "error";
+export type ViewMode = "rich" | "source";
 type ExternalChange =
 	| { kind: "none" }
 	| { kind: "conflict"; diskContent: string };
@@ -30,6 +31,7 @@ type DocumentState = {
 	externalChange: ExternalChange;
 	status: ViewerStatus;
 	error: string | null;
+	viewMode: ViewMode;
 };
 
 const NO_CONFLICT: ExternalChange = { kind: "none" };
@@ -47,6 +49,7 @@ export const emptyDoc = (
 	externalChange: NO_CONFLICT,
 	status: "idle",
 	error: null,
+	viewMode: "rich",
 });
 
 export function cleanFileState(content: string) {
@@ -129,6 +132,7 @@ export function withOpenedDoc(
 			currentPath: path,
 			lastOpenedPath: path,
 			...cleanFileState(content),
+			viewMode: "rich",
 		},
 	};
 }

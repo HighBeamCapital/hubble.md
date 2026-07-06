@@ -210,6 +210,60 @@ describe("desktop savePathContent", () => {
 		expect(viewerStore.get().diskContent).toBe("draft 2");
 		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
 	});
+
+	it("switches view mode without changing editor content", async () => {
+		const api = createDesktopApi();
+		const { appStore, setViewerMode, viewerStore } =
+			await loadStoreActions(api);
+		const path = "/workspace/note.md";
+
+		appStore.set((current) => ({
+			...current,
+			document: {
+				...current.document,
+				currentPath: path,
+				lastOpenedPath: path,
+				content: "draft",
+				diskContent: "before",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		setViewerMode("source");
+
+		expect(viewerStore.get().viewMode).toBe("source");
+		expect(viewerStore.get().content).toBe("draft");
+	});
+
+	it("resets source mode when opening another file", async () => {
+		const api = createDesktopApi();
+		api.readFileText.mockResolvedValue("next file");
+		const { appStore, loadPath, setViewerMode, viewerStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			document: {
+				...current.document,
+				currentPath: "/workspace/old.md",
+				lastOpenedPath: "/workspace/old.md",
+				content: "old file",
+				diskContent: "old file",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+		setViewerMode("source");
+
+		await loadPath("/workspace/next.md");
+
+		expect(viewerStore.get().currentPath).toBe("/workspace/next.md");
+		expect(viewerStore.get().content).toBe("next file");
+		expect(viewerStore.get().viewMode).toBe("rich");
+	});
 });
 
 describe("desktop renameMarkdownFile", () => {

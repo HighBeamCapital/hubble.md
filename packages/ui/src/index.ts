@@ -19,6 +19,10 @@ export {
 export { FormattingStatusBar } from "./editor/FormattingStatusBar";
 export { classifyHref } from "./editor/href";
 export { LinkCreationGhostExtension } from "./editor/LinkCreationGhostExtension";
+export {
+	MarkdownSourceEditor,
+	type MarkdownSourceEditorProps,
+} from "./editor/MarkdownSourceEditor";
 export { SmartLinkExtension } from "./editor/SmartLinkExtension";
 export { VirtualCursor } from "./editor/VirtualCursor";
 export type { VirtualCursorMode } from "./editor/virtualCursorMode";
