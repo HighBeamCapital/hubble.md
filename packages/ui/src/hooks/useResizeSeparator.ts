@@ -10,7 +10,6 @@ export type ResizeAxis = "col" | "row";
 
 export type ResizePointerContext<TElement extends HTMLElement> = {
 	event: ReactPointerEvent<TElement>;
-	startValue: number;
 	startRect: DOMRect | null;
 };
 
@@ -56,7 +55,6 @@ export function useResizeSeparator<
 	targetRef,
 }: ResizeSeparatorOptions<TElement>) {
 	const pointerIdRef = useRef<number | null>(null);
-	const startValueRef = useRef(value);
 	const startRectRef = useRef<DOMRect | null>(null);
 	const [isResizing, setIsResizing] = useState(false);
 
@@ -107,7 +105,6 @@ export function useResizeSeparator<
 	function onPointerDown(event: ReactPointerEvent<TElement>) {
 		event.preventDefault();
 		pointerIdRef.current = event.pointerId;
-		startValueRef.current = value;
 		startRectRef.current = targetRef?.current?.getBoundingClientRect() ?? null;
 		event.currentTarget.setPointerCapture(event.pointerId);
 		setIsResizing(true);
@@ -119,7 +116,6 @@ export function useResizeSeparator<
 		event.preventDefault();
 		const nextValue = getPointerValue({
 			event,
-			startValue: startValueRef.current,
 			startRect: startRectRef.current,
 		});
 		if (nextValue === null) return;

@@ -28,14 +28,21 @@ function getDefaultShell() {
 	return process.env.SHELL || "/bin/sh";
 }
 
+function displayPath(filePath: string) {
+	const homeDir = os.homedir();
+	if (filePath === homeDir) return "~";
+	if (filePath.startsWith(`${homeDir}${path.sep}`)) {
+		return `~${filePath.slice(homeDir.length)}`;
+	}
+	return filePath;
+}
+
 function ensureSpawnHelperExecutable() {
 	// pnpm can strip the exec bit from node-pty's macOS spawn-helper binary,
 	// which makes pty.spawn throw "posix_spawnp failed".
 	if (os.platform() !== "darwin") return;
 	try {
-		const packageRoot = path.dirname(
-			path.dirname(require.resolve("node-pty")),
-		);
+		const packageRoot = path.dirname(path.dirname(require.resolve("node-pty")));
 		for (const dir of [
 			path.join(packageRoot, "prebuilds", `darwin-${process.arch}`),
 			path.join(packageRoot, "build", "Release"),
@@ -190,7 +197,7 @@ export function setupTerminalIpc(
 				onData(
 					"\r\n\x1b[33m[Warning] Running in Fallback Mode (no PTY). Interactive apps (like vim) may not render correctly.\x1b[0m\r\n\n",
 				);
-				onData(`${cwd}> `); // Fake a prompt for fallback
+				onData(`${displayPath(cwd)}> `); // Fake a prompt for fallback
 			}
 
 			return sessionId;
