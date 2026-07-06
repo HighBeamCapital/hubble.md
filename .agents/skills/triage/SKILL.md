@@ -8,9 +8,7 @@ description: Triage an incoming GitHub, Jira, Linear, or other issue-tracker iss
 Assess the issue passed in the user's prompt and decide exactly one implementation-readiness state:
 
 - `Ready to implement`
-- `Ready to spec`
-- `Needs info`
-- `Wait to implement`
+- `Needs discussion`
 
 The goal is to route work honestly, not to make every issue appear actionable. Base the decision on evidence from the issue tracker, current checkout, and related open issues.
 
@@ -60,7 +58,7 @@ Prefer targeted searches and reads. This is triage, not implementation: do not e
 
 ### 4. Choose one state
 
-Use the following rubric. When evidence sits between states, choose the more cautious state.
+Use the following rubric. When evidence sits between states, choose `Needs discussion`.
 
 #### Ready to implement
 
@@ -69,59 +67,38 @@ Choose when:
 - Desired behavior and success criteria are clear
 - Scope is bounded and cohesive with the current product
 - Likely implementation area is identifiable
-- Complexity and risk are low enough that a coding agent has a good chance of completing it correctly in one pass
+- Complexity and risk are low enough that an implementer (human or agent) has a good chance of completing it correctly in one pass
 - No unresolved product decision or major dependency blocks implementation
 
 Small bugs with clear reproduction steps and straightforward improvements usually belong here.
 
-#### Ready to spec
+#### Needs discussion
 
-Choose when:
+Choose for everything else:
 
-- The product goal is clear and appears worthwhile
-- The work fits the product
-- Material product or technical decisions remain
-- Multiple valid designs, broad surface-area changes, migrations, or non-trivial dependencies make one-shot implementation risky
-
-The issue should be clear enough to begin product or technical specification work without first asking the reporter basic questions.
-
-#### Needs info
-
-Choose when:
-
+- Material product or technical decisions remain open
+- Multiple valid designs, broad surface-area changes, or non-trivial dependencies make one-shot implementation risky
 - The expected behavior, problem, scope, or reproduction is ambiguous
 - Critical environment details, evidence, or acceptance criteria are missing
-- The issue may be actionable, but the available information cannot support a responsible implementation or spec
+- The request may not fit the current product direction, duplicates or conflicts with planned work, or a dependency makes it premature
 
-State the smallest set of concrete questions whose answers would unblock re-triage.
-
-#### Wait to implement
-
-Choose when:
-
-- The request does not fit cohesively into the current product or codebase direction
-- It duplicates or conflicts with planned work
-- The benefit does not justify the complexity or maintenance cost
-- A dependency, platform limitation, or strategic decision makes work premature
-
-Explain what would need to change before reconsidering it. Do not use this state merely because an issue is difficult; complex but cohesive work is usually `Ready to spec`.
 
 ### 5. Return the result
 
-Pick the tracker label that matches the chosen state, preferring an existing label with the same meaning and the tracker's established naming and casing (for example `ready-to-implement` for `Ready to implement`). List any existing triage-state labels that should be removed.
+Pick the tracker label that matches the chosen state, preferring an existing label with the same meaning and the tracker's established naming and casing (for example `ready-to-implement` for `Ready to implement` and `needs-discussion` for `Needs discussion`). List any existing triage-state labels that should be removed.
 
 Return a single raw JSON object as your final response — no prose and no markdown code fences:
 
 ```json
 {
-  "state": "Ready to implement | Ready to spec | Needs info | Wait to implement",
+  "state": "Ready to implement | Needs discussion",
   "label": "exact tracker label matching the chosen state",
   "remove_labels": ["existing triage-state labels that should be removed"],
   "comment": "markdown body for the issue"
 }
 ```
 
-Write `comment` as reporter-facing markdown: a short lead sentence with the decision, then the evidence-based rationale and one concrete next step, using a brief bullet list where it aids readability. Because `comment` is a JSON string, encode every line break as `\n` (a literal newline would make the JSON invalid).
+Write `comment` as reporter-facing markdown: a short lead sentence with the decision, then the evidence-based rationale, using a brief bullet list where it aids readability. For `Needs discussion`, end the comment with the concrete questions and open decisions from step 4. Because `comment` is a JSON string, encode every line break as `\n` (a literal newline would make the JSON invalid).
 
 ## Guardrails
 

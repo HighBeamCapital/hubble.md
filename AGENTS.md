@@ -16,7 +16,7 @@ GitHub Issues on `bholmesdev/hubble.md` via the `gh` CLI. See `docs/agents/issue
 
 ### Triage labels
 
-Defaults: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+Defaults: `needs-triage`, `ready-to-implement`, `needs-discussion`, `wontfix`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
