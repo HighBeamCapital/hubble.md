@@ -4,10 +4,7 @@ import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-	HtmlAppsDialog,
-	SidebarHtmlAppsCallout,
-} from "./components/HtmlAppsCallout";
+import { HtmlAppEmptyState } from "./components/HtmlAppEmptyState";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
@@ -22,9 +19,9 @@ import { createEmbedExtension } from "./editor/EmbedExtension";
 import { handleImageDrop, handleImagePaste } from "./editor/handleImagePaste";
 import { IframeView, toAssetUrl } from "./editor/IframeView";
 import { createImageExtension } from "./editor/ImageExtension";
-import { createMarkdownFile } from "./fileActions";
+import { createHtmlFile, createMarkdownFile } from "./fileActions";
+import { copyText } from "./lib/clipboard";
 import { hasHtmlExtension, relativeWorkspacePath } from "./lib/filePath";
-import { hasHubbleSkillsInstalled } from "./lib/hubbleSkills";
 import { resolveWikiPath } from "./lib/wikiPath";
 import { SIDEBAR_NAV_SELECTOR } from "./selectors";
 import {
@@ -59,28 +56,13 @@ const HMR_REV = (() => {
 	return hotData.__editorRev;
 })();
 
-const HTML_APPS_CALLOUT_DISMISSED_PREFIX =
-	"hubble:html-apps-callout-dismissed:";
-
-function isHtmlAppsCalloutDismissed(workspacePath: string) {
-	return Boolean(
-		localStorage.getItem(HTML_APPS_CALLOUT_DISMISSED_PREFIX + workspacePath),
-	);
-}
-
 function focusSidebarNav() {
 	document.querySelector<HTMLElement>(SIDEBAR_NAV_SELECTOR)?.focus();
 }
 
 async function copyFilePath(path: string | null) {
 	if (!path) return;
-
-	try {
-		await navigator.clipboard.writeText(path);
-		toast.success("File path copied");
-	} catch {
-		toast.error("Failed to copy file path");
-	}
+	await copyText(path, "File path");
 }
 
 async function revealPath(path: string | null) {
@@ -108,34 +90,7 @@ function App() {
 		null,
 	);
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
-	const [htmlAppsDialogOpen, setHtmlAppsDialogOpen] = useState(false);
-	const [htmlAppsCalloutVisible, setHtmlAppsCalloutVisible] = useState(false);
 
-	const dismissHtmlAppsCallout = useCallback(() => {
-		if (workspacePath) {
-			localStorage.setItem(
-				HTML_APPS_CALLOUT_DISMISSED_PREFIX + workspacePath,
-				"1",
-			);
-		}
-		setHtmlAppsCalloutVisible(false);
-	}, [workspacePath]);
-
-	// Show the HTML Apps callout when a folder is open, the Hubble skills are
-	// not installed there, and it has not been dismissed for that folder.
-	useEffect(() => {
-		if (!workspacePath || isHtmlAppsCalloutDismissed(workspacePath)) {
-			setHtmlAppsCalloutVisible(false);
-			return;
-		}
-		let active = true;
-		void hasHubbleSkillsInstalled(workspacePath).then((installed) => {
-			if (active) setHtmlAppsCalloutVisible(!installed);
-		});
-		return () => {
-			active = false;
-		};
-	}, [workspacePath]);
 	const readyVersion =
 		updateState?.status === "ready"
 			? (updateState.availableVersion ?? "__unknown__")
@@ -291,6 +246,7 @@ function App() {
 	useEffect(() => {
 		const disposers = [
 			desktopApi.onMenuCreateMarkdownFile(() => void createMarkdownFile()),
+			desktopApi.onMenuCreateHtmlFile(() => void createHtmlFile()),
 			desktopApi.onMenuOpenFile(() => void openFilePicker()),
 			desktopApi.onMenuOpenFolder(() => void openWorkspaceWithSidebar()),
 			desktopApi.onMenuOpenSettings(() => openSettings()),
@@ -368,11 +324,6 @@ function App() {
 									setDismissedVersion(readyVersion ?? "__unknown__")
 								}
 							/>
-						) : htmlAppsCalloutVisible ? (
-							<SidebarHtmlAppsCallout
-								onShowMore={() => setHtmlAppsDialogOpen(true)}
-								onDismiss={dismissHtmlAppsCallout}
-							/>
 						) : undefined
 					}
 				/>
@@ -422,11 +373,6 @@ function App() {
 					/>
 				) : null}
 			</SettingsDialog>
-			<HtmlAppsDialog
-				open={htmlAppsDialogOpen}
-				onOpenChange={setHtmlAppsDialogOpen}
-				workspacePath={workspacePath ?? null}
-			/>
 		</main>
 	);
 }
@@ -443,8 +389,11 @@ function DocumentViewer({
 	if (hasHtmlExtension(path)) {
 		return (
 			<HtmlDocumentViewer
+				// Remount on content change so the iframe reloads the updated file
+				// from disk and a stale load error clears.
 				key={`${path}:${content}`}
 				path={path}
+				content={content}
 				onScrollContainerChange={onScrollContainerChange}
 			/>
 		);
@@ -462,17 +411,28 @@ function DocumentViewer({
 
 function HtmlDocumentViewer({
 	path,
+	content,
 	onScrollContainerChange,
 }: {
 	path: string;
+	content: string;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
 }) {
 	const workspace = useStoreValue(workspaceStore);
 	const [error, setError] = useState<string | null>(null);
+	const isEmpty = content.trim().length === 0;
 
 	useEffect(() => {
 		onScrollContainerChange?.(null);
 	}, [onScrollContainerChange]);
+
+	// The open file's content updates live as the agent writes to disk, so swap
+	// between the teaching empty state and the rendered app without reopening.
+	if (isEmpty) {
+		return (
+			<HtmlAppEmptyState path={path} workspacePath={workspace.workspacePath} />
+		);
+	}
 
 	return (
 		<div className="flex h-full min-h-0 flex-1 overflow-hidden bg-background">
