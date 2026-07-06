@@ -181,16 +181,23 @@ export function FormatCommandMenu({
 		setOpen(false);
 		setQuery("");
 		setPosition(null);
-	}, []);
+		// Drop the frozen highlight and restore the real selection so a chosen
+		// command formats the range the user was looking at.
+		editor?.commands.restoreSelection({ focus: false });
+	}, [editor]);
 	const openMenu = useCallback(() => {
 		const viewport = viewportRef.current;
 		if (!viewport) return;
+		// Focus moves to the menu input, which visually drops the editor
+		// selection. Freeze it as a decoration so the user can still see what
+		// they are about to format.
+		editor?.commands.freezeSelection();
 		setQuery("");
 		setSelectedKind("paragraph");
 		setPosition(null);
 		setOpen(true);
 		requestAnimationFrame(() => inputRef.current?.focus());
-	}, [viewportRef]);
+	}, [editor, viewportRef]);
 
 	useEffect(() => {
 		if (!editor) return;

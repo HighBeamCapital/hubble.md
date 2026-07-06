@@ -1,5 +1,6 @@
 import {
 	combineMarkdownFrontMatter,
+	FakeSelectionExtension,
 	HeadingExtension,
 	LinkExtension,
 	listExtensions,
@@ -136,6 +137,7 @@ export function EditorView({
 			SmartLinkExtension,
 			LinkClickExtension.configure({ onOpenExternalLink, onOpenWikiLink }),
 			LinkCreationGhostExtension,
+			FakeSelectionExtension,
 			HeadingExtension,
 			MarkdownRolloverExtension,
 			StrikethroughShortcutExtension,

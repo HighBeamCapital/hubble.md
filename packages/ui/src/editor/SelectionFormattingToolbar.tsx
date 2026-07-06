@@ -7,6 +7,7 @@ import {
 } from "@floating-ui/dom";
 import type { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
+import { keymatch } from "keymatch";
 import {
 	type ComponentType,
 	type CSSProperties,
@@ -157,6 +158,15 @@ export function SelectionFormattingToolbar({
 		if (!editor) return;
 		let pointerDown = false;
 		let showTimer: number | null = null;
+		let pointerUpTimer: number | null = null;
+		// Escape dismisses the toolbar for the current selection only; any new
+		// or modified selection clears the dismissal.
+		let dismissedSelectionKey: string | null = null;
+
+		const selectionKey = () => {
+			const { from, to } = editor.state.selection;
+			return `${from}:${to}`;
+		};
 
 		const clearShowTimer = () => {
 			if (showTimer === null) return;
@@ -230,9 +240,19 @@ export function SelectionFormattingToolbar({
 		};
 
 		const update = (immediate = false) => {
+			if (
+				dismissedSelectionKey !== null &&
+				dismissedSelectionKey !== selectionKey()
+			) {
+				dismissedSelectionKey = null;
+			}
 			// Stay hidden while the pointer is down so the toolbar never covers
 			// text mid-drag; it reappears on pointerup once the selection is set.
-			if (pointerDown || !shouldShowToolbar(editor)) {
+			if (
+				pointerDown ||
+				dismissedSelectionKey !== null ||
+				!shouldShowToolbar(editor)
+			) {
 				hide();
 				return;
 			}
@@ -260,7 +280,24 @@ export function SelectionFormattingToolbar({
 		const handlePointerUp = () => {
 			if (!pointerDown) return;
 			pointerDown = false;
-			update(true);
+			// ProseMirror applies click selections on mouseup, which fires after
+			// pointerup. Defer so we evaluate the final selection instead of
+			// briefly re-showing the toolbar for the stale one.
+			if (pointerUpTimer !== null) window.clearTimeout(pointerUpTimer);
+			pointerUpTimer = window.setTimeout(() => {
+				pointerUpTimer = null;
+				update(true);
+			}, 0);
+		};
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!keymatch(event, "Escape")) return;
+			// Someone else (link popover, format menu) consumed this Escape.
+			if (event.defaultPrevented) return;
+			if (!openRef.current && showTimer === null) return;
+			// Dismiss the bar without touching the text selection, and without
+			// preventing default so other Escape handling still runs.
+			dismissedSelectionKey = selectionKey();
+			hide();
 		};
 
 		update();
@@ -273,17 +310,20 @@ export function SelectionFormattingToolbar({
 		editorDom.addEventListener("pointerdown", handlePointerDown);
 		// The drag can end outside the editor, so listen on window.
 		window.addEventListener("pointerup", handlePointerUp);
+		window.addEventListener("keydown", handleKeyDown);
 		viewport?.addEventListener("scroll", handleUpdate, { passive: true });
 		window.addEventListener("resize", handleUpdate);
 
 		return () => {
 			clearShowTimer();
+			if (pointerUpTimer !== null) window.clearTimeout(pointerUpTimer);
 			editor.off("selectionUpdate", handleUpdate);
 			editor.off("transaction", handleUpdate);
 			editor.off("focus", handleUpdate);
 			editor.off("blur", handleUpdate);
 			editorDom.removeEventListener("pointerdown", handlePointerDown);
 			window.removeEventListener("pointerup", handlePointerUp);
+			window.removeEventListener("keydown", handleKeyDown);
 			viewport?.removeEventListener("scroll", handleUpdate);
 			window.removeEventListener("resize", handleUpdate);
 		};
@@ -300,8 +340,10 @@ export function SelectionFormattingToolbar({
 			data-open={open ? "" : undefined}
 			data-closed={!open && present ? "" : undefined}
 			// Same enter/exit treatment as the dropdown popups (see Sidebar's
-			// Menu.Popup / Select.Popup classes).
-			className="absolute z-[4] flex origin-(--transform-origin) items-center gap-0.5 rounded-[var(--radius-popover)] border border-border bg-popover p-1 text-popover-foreground shadow-overlay transition-[transform,opacity] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+			// Menu.Popup / Select.Popup classes). fill-mode-forwards keeps the
+			// exit's final frame (opacity 0) applied until React unmounts the
+			// bar, so it never flashes back to visible after animating out.
+			className="absolute z-[4] flex origin-(--transform-origin) items-center gap-0.5 rounded-[var(--radius-popover)] border border-border bg-popover p-1 text-popover-foreground shadow-overlay transition-[transform,opacity] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:fill-mode-forwards"
 			style={
 				{
 					insetInlineStart: `${position?.x ?? 0}px`,
@@ -312,7 +354,10 @@ export function SelectionFormattingToolbar({
 				} as CSSProperties
 			}
 			onAnimationEnd={(event) => {
+				// Only the exit animation ending retires the bar; an enter
+				// animation finishing right after a hide/show flip must not.
 				if (event.target !== event.currentTarget) return;
+				if (event.animationName !== "exit") return;
 				if (!openRef.current) setPresent(false);
 			}}
 		>
