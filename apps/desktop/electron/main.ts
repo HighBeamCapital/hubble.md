@@ -29,6 +29,7 @@ import type {
 } from "../src/desktopApi/types";
 import {
 	hasDocumentExtension,
+	hasMarkdownExtension,
 	isHiddenSidebarFolderName,
 	markdownAssetFolderPath,
 	withMarkdownExtension,
@@ -494,6 +495,25 @@ async function pathExists(input: string): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+async function assertGrantedOrConfirmFile(filePath: string): Promise<string> {
+	try {
+		return assertGranted(filePath);
+	} catch {
+		const resolved = resolvePath(filePath);
+		const result = await dialog.showMessageBox(mainWindow ?? undefined, {
+			type: "question",
+			buttons: ["Open", "Cancel"],
+			defaultId: 0,
+			cancelId: 1,
+			message: "Open file outside workspace?",
+			detail: resolved,
+		});
+		if (result.response !== 0) throw new Error("Open cancelled");
+		grantFileWithParent(resolved);
+		return resolved;
 	}
 }
 
@@ -1393,6 +1413,18 @@ function registerIpc() {
 			throw new Error("Only http(s) external URLs are allowed");
 		}
 		await shell.openExternal(url);
+	});
+
+	ipcMain.handle("desktop:open-path-from-link", async (_event, { path }) => {
+		const resolved = await assertGrantedOrConfirmFile(path);
+		if (hasMarkdownExtension(resolved)) {
+			if (!(await pathExistsAsFile(resolved))) {
+				throw new Error("FILE_NOT_FOUND");
+			}
+			return { kind: "markdown", path: toRendererPath(resolved) };
+		}
+		await shell.openPath(resolved);
+		return { kind: "opened" };
 	});
 
 	ipcMain.handle("desktop:reveal-file", (_event, { path: filePath }) => {

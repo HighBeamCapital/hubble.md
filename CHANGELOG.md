@@ -21,6 +21,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 - Desktop saves no longer drop trailing content in notes with multibyte characters
+- Relative Markdown file links now open the linked file instead of showing an invalid URL error
 
 ## [0.1.16] - 2026-06-27
 

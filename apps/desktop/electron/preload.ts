@@ -73,6 +73,8 @@ const desktopApi = {
 	},
 	openExternalUrl: (url) =>
 		ipcRenderer.invoke("desktop:open-external-url", { url }),
+	openPathFromLink: (path) =>
+		ipcRenderer.invoke("desktop:open-path-from-link", { path }),
 	revealFile: (path) => ipcRenderer.invoke("desktop:reveal-file", { path }),
 	resolvePath: (path) => ipcRenderer.invoke("desktop:resolve-path", { path }),
 	realPath: (path) => ipcRenderer.invoke("desktop:real-path", { path }),

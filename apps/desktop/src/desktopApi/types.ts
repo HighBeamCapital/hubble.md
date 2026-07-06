@@ -28,6 +28,10 @@ export type PersistPastedImageOutput = {
 	deduped: boolean;
 };
 
+export type OpenPathFromLinkResult =
+	| { kind: "markdown"; path: string }
+	| { kind: "opened" };
+
 export type WatchOptions = {
 	recursive: boolean;
 };
@@ -105,6 +109,7 @@ export type DesktopApi = {
 		callback: (paths: string[]) => void,
 	): Promise<Unsubscribe>;
 	openExternalUrl(url: string): Promise<void>;
+	openPathFromLink(path: string): Promise<OpenPathFromLinkResult>;
 	revealFile(path: string): Promise<void>;
 	resolvePath(path: string): Promise<string>;
 	realPath(path: string): Promise<string>;

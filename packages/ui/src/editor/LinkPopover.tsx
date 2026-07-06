@@ -32,6 +32,7 @@ import { cn } from "../lib/utils";
 import { Button } from "../primitives/button";
 import { Input } from "../primitives/input";
 import { Separator } from "../primitives/separator";
+import { classifyHref, linkAttrsForHref } from "./href";
 import { linkCreationGhostKey } from "./LinkCreationGhostExtension";
 import styles from "./LinkPopover.module.css";
 import {
@@ -304,33 +305,46 @@ async function visitLink(
 	onOpenExternalLink: (href: string) => void | Promise<void>,
 	onMessage?: (message: string, kind: "success" | "error") => void,
 ) {
-	try {
-		const parsed = new URL(href);
-		const protocol = parsed.protocol.toLowerCase();
-		if (protocol !== "http:" && protocol !== "https:") {
-			onMessage?.("Only http(s) links can be opened", "error");
-			return;
+	if (classifyHref(href) === "external") {
+		try {
+			const parsed = new URL(href);
+			const protocol = parsed.protocol.toLowerCase();
+			if (protocol !== "http:" && protocol !== "https:") {
+				onMessage?.("Only http(s) links can be opened", "error");
+				return;
+			}
+			await onOpenExternalLink(href);
+		} catch {
+			onMessage?.("Invalid link URL", "error");
 		}
+		return;
+	}
+	try {
 		await onOpenExternalLink(href);
-	} catch {
-		onMessage?.("Invalid link URL", "error");
+	} catch (error) {
+		if (error instanceof Error) onMessage?.(error.message, "error");
+		else onMessage?.("Could not open link", "error");
 	}
 }
 
-function isHttpUrl(href: string) {
+function canAutofillLinkFromClipboard(href: string) {
+	if (classifyHref(href) === "relative-file") {
+		return (
+			href.startsWith("./") || href.startsWith("../") || href.startsWith("/")
+		);
+	}
 	try {
 		const protocol = new URL(href).protocol.toLowerCase();
-		return protocol === "http:" || protocol === "https:";
+		if (protocol !== "http:" && protocol !== "https:") return false;
 	} catch {
 		return false;
 	}
+	return true;
 }
 function updateLinkMark(editor: Editor, link: ActiveLink, href: string) {
 	const linkType = editor.state.schema.marks.link;
 	if (!linkType) return;
-	const attrs = isHttpUrl(href)
-		? { href, kind: "url", target: null }
-		: { href, kind: "wiki", target: href };
+	const attrs = linkAttrsForHref(href);
 	if (link.from === link.to) {
 		// Zero-width links edit stored marks because there is no text range yet.
 		const marks = (
@@ -944,10 +958,10 @@ export function LinkPopover({
 					.readText()
 					.then((clipboardValue) => {
 						const href = clipboardValue.trim();
-						if (!isHttpUrl(href)) return;
+						if (!canAutofillLinkFromClipboard(href)) return;
 						updateLinkMark(editor, link, href);
 						setHrefValue(href);
-						setActiveLink({ ...link, href, kind: "url", target: null });
+						setActiveLink({ ...link, ...linkAttrsForHref(href) });
 						dispatchMachineEvent({ type: "EXPAND_REQUESTED" });
 					})
 					.catch(() => {});

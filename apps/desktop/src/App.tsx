@@ -1,5 +1,11 @@
 import { wikiDisplayNameForTarget } from "@hubble.md/editor";
-import { Button, EditorView, Input, type WikiTarget } from "@hubble.md/ui";
+import {
+	Button,
+	classifyHref,
+	EditorView,
+	Input,
+	type WikiTarget,
+} from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useState } from "react";
@@ -23,7 +29,12 @@ import { IframeView, toAssetUrl } from "./editor/IframeView";
 import { createImageExtension } from "./editor/ImageExtension";
 import { createHtmlFile, createMarkdownFile } from "./fileActions";
 import { copyText } from "./lib/clipboard";
-import { hasHtmlExtension, relativeWorkspacePath } from "./lib/filePath";
+import {
+	hasHtmlExtension,
+	hasMarkdownExtension,
+	relativeWorkspacePath,
+} from "./lib/filePath";
+import { resolveRelativeLinkPath } from "./lib/relativeLinkPath";
 import { resolveWikiPath } from "./lib/wikiPath";
 import { SIDEBAR_NAV_SELECTOR } from "./selectors";
 import {
@@ -542,6 +553,40 @@ function MarkdownEditor({
 			title: wikiDisplayNameForTarget(target),
 		};
 	});
+	const openExternalLink = useCallback(
+		async (href: string) => {
+			if (classifyHref(href) === "external") {
+				await desktopApi.openExternalUrl(href);
+				return;
+			}
+			const resolved = resolveRelativeLinkPath({
+				href,
+				currentFilePath: path,
+				workspacePath: workspace.workspacePath,
+			});
+			try {
+				const result = await desktopApi.openPathFromLink(resolved);
+				if (result.kind === "markdown") await loadPath(result.path);
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					error.message.includes("Open cancelled")
+				) {
+					return;
+				}
+				if (
+					hasMarkdownExtension(resolved) &&
+					error instanceof Error &&
+					error.message.includes("FILE_NOT_FOUND")
+				) {
+					toast.error(`File not found: ${href.split("#", 1)[0] ?? href}`);
+					return;
+				}
+				throw error;
+			}
+		},
+		[path, workspace.workspacePath],
+	);
 	return (
 		<EditorView
 			path={path}
@@ -559,7 +604,7 @@ function MarkdownEditor({
 			onLocalChange={updateEditorContent}
 			onSave={savePathContent}
 			onScrollContainerChange={onScrollContainerChange}
-			onOpenExternalLink={desktopApi.openExternalUrl}
+			onOpenExternalLink={openExternalLink}
 			onOpenWikiLink={(target) =>
 				void loadPath(
 					resolveWikiPath({
