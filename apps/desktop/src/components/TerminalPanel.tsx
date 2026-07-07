@@ -489,19 +489,28 @@ function TerminalInstance({
 			const foreground = cssColorToRgba(rawForeground);
 			const background = cssColorToRgba(rawBackground);
 
-			// Tailwind 4 outputs font-mono or default-mono-font-family
-			let fontFamily = style.getPropertyValue("--font-mono").trim();
-			if (!fontFamily) {
-				fontFamily = style
+			let systemFont = style.getPropertyValue("--font-mono").trim();
+			if (!systemFont) {
+				systemFont = style
 					.getPropertyValue("--default-mono-font-family")
 					.trim();
 			}
-			if (!fontFamily) fontFamily = "monospace";
+			if (!systemFont) systemFont = "monospace";
+
+			const NERD_FONTS = [
+				"JetBrainsMono Nerd Font",
+				"FiraCode Nerd Font",
+				"MesloLGS Nerd Font",
+				"CascadiaCode Nerd Font",
+				"Monaspace Neon Nerd Font",
+				"Iosevka Nerd Font",
+				"Hack Nerd Font",
+			];
 
 			const isDark = document.documentElement.classList.contains("dark");
 			const palette = isDark ? DARK_THEME : LIGHT_THEME;
 
-			term.options.fontFamily = fontFamily;
+			term.options.fontFamily = `${NERD_FONTS.join(", ")}, ${systemFont}`;
 			term.options.theme = {
 				...palette,
 				background,

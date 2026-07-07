@@ -27,13 +27,13 @@ export {
 export { SmartLinkExtension } from "./editor/SmartLinkExtension";
 export { VirtualCursor } from "./editor/VirtualCursor";
 export type { VirtualCursorMode } from "./editor/virtualCursorMode";
-export { type Theme, useTheme } from "./lib/theme";
 export {
 	type ResizeAxis,
 	type ResizePointerContext,
 	useResizeSeparator,
 } from "./hooks/useResizeSeparator";
 export { formatShortcut } from "./lib/shortcut";
+export { type Theme, useTheme } from "./lib/theme";
 export { Button, buttonVariants } from "./primitives/button";
 export { Input } from "./primitives/input";
 export { Modal } from "./primitives/modal";

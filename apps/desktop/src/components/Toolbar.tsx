@@ -1,5 +1,10 @@
 import { Menu } from "@base-ui/react/menu";
-import { Button, formatShortcut, ThemeToggle, Toolbar as SharedToolbar } from "@hubble.md/ui";
+import {
+	Button,
+	formatShortcut,
+	Toolbar as SharedToolbar,
+	ThemeToggle,
+} from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { toast } from "sonner";

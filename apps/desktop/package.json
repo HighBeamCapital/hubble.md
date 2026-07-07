@@ -7,11 +7,11 @@
 	"author": "Ben Holmes <hey@bholmes.dev>",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bholmesdev/hubble.md.git",
+		"url": "git+https://github.com/HighBeamCapital/hubble.md.git",
 		"directory": "apps/desktop"
 	},
 	"homepage": "https://hubble.md",
-	"bugs": "https://github.com/bholmesdev/hubble.md/issues",
+	"bugs": "https://github.com/HighBeamCapital/hubble.md/issues",
 	"type": "module",
 	"main": "./out/main/main.js",
 	"scripts": {
@@ -91,7 +91,7 @@
 		"publish": [
 			{
 				"provider": "github",
-				"owner": "bholmesdev",
+				"owner": "HighBeamCapital",
 				"repo": "hubble.md",
 				"tagNamePrefix": "desktop-v",
 				"releaseType": "release"
