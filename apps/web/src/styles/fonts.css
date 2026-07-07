@@ -1,62 +1,62 @@
 /* Self-hosted brand faces */
 @font-face {
-  font-family: "Fredoka";
-  src: url("/fonts/Fredoka-Variable.ttf") format("truetype-variations");
-  font-weight: 300 700;
-  font-stretch: 75% 125%;
-  font-display: swap;
+	font-family: "Fredoka";
+	src: url("/fonts/Fredoka-Variable.ttf") format("truetype-variations");
+	font-weight: 300 700;
+	font-stretch: 75% 125%;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Satoshi";
-  src: url("/fonts/Satoshi-Variable.ttf") format("truetype-variations");
-  font-weight: 300 900;
-  font-display: swap;
+	font-family: "Satoshi";
+	src: url("/fonts/Satoshi-Variable.ttf") format("truetype-variations");
+	font-weight: 300 900;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Chubbo";
-  src: url("/fonts/Chubbo-Bold.otf") format("opentype");
-  font-weight: 700;
-  font-display: swap;
+	font-family: "Chubbo";
+	src: url("/fonts/Chubbo-Bold.otf") format("opentype");
+	font-weight: 700;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Obviously Wide";
-  src: url("/fonts/ObviouslyWide-Black.otf") format("opentype");
-  font-weight: 900;
-  font-display: swap;
+	font-family: "Obviously Wide";
+	src: url("/fonts/ObviouslyWide-Black.otf") format("opentype");
+	font-weight: 900;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Obviously Wide";
-  src: url("/fonts/ObviouslyWide-Bold.otf") format("opentype");
-  font-weight: 700;
-  font-display: swap;
+	font-family: "Obviously Wide";
+	src: url("/fonts/ObviouslyWide-Bold.otf") format("opentype");
+	font-weight: 700;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Obviously";
-  src: url("/fonts/Obviously-Black.otf") format("opentype");
-  font-weight: 900;
-  font-display: swap;
+	font-family: "Obviously";
+	src: url("/fonts/Obviously-Black.otf") format("opentype");
+	font-weight: 900;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Radon";
-  src: url("/fonts/MonaspaceRadon-Medium.otf") format("opentype");
-  font-weight: 500;
-  font-display: swap;
+	font-family: "Radon";
+	src: url("/fonts/MonaspaceRadon-Medium.otf") format("opentype");
+	font-weight: 500;
+	font-display: swap;
 }
 @font-face {
-  font-family: "Radon";
-  src: url("/fonts/MonaspaceRadon-Bold.otf") format("opentype");
-  font-weight: 700;
-  font-display: swap;
+	font-family: "Radon";
+	src: url("/fonts/MonaspaceRadon-Bold.otf") format("opentype");
+	font-weight: 700;
+	font-display: swap;
 }
 @font-face {
-  font-family: "IBM Plex Mono";
-  src: url("/fonts/IBMPlexMono-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-display: swap;
+	font-family: "IBM Plex Mono";
+	src: url("/fonts/IBMPlexMono-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-display: swap;
 }
 @font-face {
-  font-family: "IBM Plex Mono";
-  src: url("/fonts/IBMPlexMono-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-display: swap;
+	font-family: "IBM Plex Mono";
+	src: url("/fonts/IBMPlexMono-Medium.ttf") format("truetype");
+	font-weight: 500;
+	font-display: swap;
 }

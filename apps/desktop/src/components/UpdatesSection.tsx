@@ -48,10 +48,10 @@ export function UpdatesSection({
 
 	return (
 		<SettingsSection title="Updates">
-			<div className="flex flex-col gap-3">
+			<div className="flex flex-col gap-2">
 				<div className="flex flex-wrap items-center justify-between gap-3">
-					<div className="flex min-w-0 flex-col gap-1">
-						<p className="text-sm text-foreground">
+					<div className="flex min-w-0 flex-col gap-0.5">
+						<p className="text-[13px] text-foreground">
 							Current version {state.currentVersion}
 						</p>
 						{state.lastCheckedAt ? (

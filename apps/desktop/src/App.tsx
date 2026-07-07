@@ -1,15 +1,21 @@
 import { wikiDisplayNameForTarget } from "@hubble.md/editor";
-import { Button, EditorView, type WikiTarget } from "@hubble.md/ui";
+import {
+	Button,
+	classifyHref,
+	EditorView,
+	Input,
+	MarkdownSourceEditor,
+	type WikiTarget,
+} from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-	HtmlAppsDialog,
-	SidebarHtmlAppsCallout,
-} from "./components/HtmlAppsCallout";
-import { SettingsDialog } from "./components/SettingsDialog";
+import MingcutePencilLine from "~icons/mingcute/pencil-line";
+import { HtmlAppEmptyState } from "./components/HtmlAppEmptyState";
+import { SettingsDialog, SettingsSection } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
+import { TerminalPanel } from "./components/TerminalPanel";
 import { Toolbar } from "./components/Toolbar";
 import {
 	SidebarUpdateCallout,
@@ -22,9 +28,14 @@ import { createEmbedExtension } from "./editor/EmbedExtension";
 import { handleImageDrop, handleImagePaste } from "./editor/handleImagePaste";
 import { IframeView, toAssetUrl } from "./editor/IframeView";
 import { createImageExtension } from "./editor/ImageExtension";
-import { createMarkdownFile } from "./fileActions";
-import { hasHtmlExtension, relativeWorkspacePath } from "./lib/filePath";
-import { hasHubbleSkillsInstalled } from "./lib/hubbleSkills";
+import { createHtmlFile, createMarkdownFile } from "./fileActions";
+import { copyText } from "./lib/clipboard";
+import {
+	hasHtmlExtension,
+	hasMarkdownExtension,
+	relativeWorkspacePath,
+} from "./lib/filePath";
+import { resolveRelativeLinkPath } from "./lib/relativeLinkPath";
 import { resolveWikiPath } from "./lib/wikiPath";
 import { SIDEBAR_NAV_SELECTOR } from "./selectors";
 import {
@@ -38,14 +49,20 @@ import {
 	refreshFiles,
 	refreshFilesDebounced,
 	reloadFromDiskConflict,
+	requestChatAboutNote,
 	savePathContent,
+	setChatCommand,
 	setSidebarOpen,
+	setViewerMode,
 	setWorkspaceSwitcherOpen,
+	toggleTerminal,
 	updateEditorContent,
 } from "./store/actions";
 import {
+	chatCommandStore,
 	sidebarOpenStore,
 	uiStore,
+	type ViewMode,
 	viewerStore,
 	workspacePathStore,
 	workspaceStore,
@@ -59,28 +76,13 @@ const HMR_REV = (() => {
 	return hotData.__editorRev;
 })();
 
-const HTML_APPS_CALLOUT_DISMISSED_PREFIX =
-	"hubble:html-apps-callout-dismissed:";
-
-function isHtmlAppsCalloutDismissed(workspacePath: string) {
-	return Boolean(
-		localStorage.getItem(HTML_APPS_CALLOUT_DISMISSED_PREFIX + workspacePath),
-	);
-}
-
 function focusSidebarNav() {
 	document.querySelector<HTMLElement>(SIDEBAR_NAV_SELECTOR)?.focus();
 }
 
 async function copyFilePath(path: string | null) {
 	if (!path) return;
-
-	try {
-		await navigator.clipboard.writeText(path);
-		toast.success("File path copied");
-	} catch {
-		toast.error("Failed to copy file path");
-	}
+	await copyText(path, "File path");
 }
 
 async function revealPath(path: string | null) {
@@ -101,6 +103,7 @@ function App() {
 	const [scrollContainerEl, setScrollContainerEl] =
 		useState<HTMLDivElement | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [copyAsMarkdownRequest, setCopyAsMarkdownRequest] = useState(0);
 	const [updateState, setUpdateState] = useState<DesktopUpdateState | null>(
 		null,
 	);
@@ -108,34 +111,7 @@ function App() {
 		null,
 	);
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
-	const [htmlAppsDialogOpen, setHtmlAppsDialogOpen] = useState(false);
-	const [htmlAppsCalloutVisible, setHtmlAppsCalloutVisible] = useState(false);
 
-	const dismissHtmlAppsCallout = useCallback(() => {
-		if (workspacePath) {
-			localStorage.setItem(
-				HTML_APPS_CALLOUT_DISMISSED_PREFIX + workspacePath,
-				"1",
-			);
-		}
-		setHtmlAppsCalloutVisible(false);
-	}, [workspacePath]);
-
-	// Show the HTML Apps callout when a folder is open, the Hubble skills are
-	// not installed there, and it has not been dismissed for that folder.
-	useEffect(() => {
-		if (!workspacePath || isHtmlAppsCalloutDismissed(workspacePath)) {
-			setHtmlAppsCalloutVisible(false);
-			return;
-		}
-		let active = true;
-		void hasHubbleSkillsInstalled(workspacePath).then((installed) => {
-			if (active) setHtmlAppsCalloutVisible(!installed);
-		});
-		return () => {
-			active = false;
-		};
-	}, [workspacePath]);
 	const readyVersion =
 		updateState?.status === "ready"
 			? (updateState.availableVersion ?? "__unknown__")
@@ -217,8 +193,14 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		void desktopApi.setMenuState({ hasWorkspace });
-	}, [hasWorkspace]);
+		const currentPath = state.currentPath;
+		void desktopApi.setMenuState({
+			hasWorkspace,
+			hasMarkdownNoteOpen:
+				typeof currentPath === "string" && hasMarkdownExtension(currentPath),
+			isSourceMode: state.viewMode === "source",
+		});
+	}, [hasWorkspace, state.currentPath, state.viewMode]);
 
 	useEffect(() => {
 		if (!sidebarOpen) setFocusedSidebarPath(null);
@@ -252,6 +234,14 @@ function App() {
 				if (!path) return;
 				event.preventDefault();
 				await revealPath(path);
+			} else if (keymatch(event, "CmdOrCtrl+Shift+J")) {
+				if (
+					!viewerStore.get().currentPath ||
+					!workspaceStore.get().workspacePath
+				)
+					return;
+				event.preventDefault();
+				requestChatAboutNote();
 			} else if (keymatch(event, "CmdOrCtrl+Shift+E")) {
 				event.preventDefault();
 				const opening = !uiStore.get().sidebarOpen;
@@ -259,9 +249,6 @@ function App() {
 				if (opening) {
 					requestAnimationFrame(() => focusSidebarNav());
 				}
-			} else if (keymatch(event, "CmdOrCtrl+0")) {
-				event.preventDefault();
-				focusSidebarNav();
 			}
 		};
 		window.addEventListener("keydown", onKeyDown);
@@ -294,13 +281,28 @@ function App() {
 	useEffect(() => {
 		const disposers = [
 			desktopApi.onMenuCreateMarkdownFile(() => void createMarkdownFile()),
+			desktopApi.onMenuCreateHtmlFile(() => void createHtmlFile()),
 			desktopApi.onMenuOpenFile(() => void openFilePicker()),
 			desktopApi.onMenuOpenFolder(() => void openWorkspaceWithSidebar()),
 			desktopApi.onMenuOpenSettings(() => openSettings()),
+			desktopApi.onMenuCopyAsMarkdown(() =>
+				setCopyAsMarkdownRequest((request) => request + 1),
+			),
 			desktopApi.onMenuShowWorkspaceSwitcher(() =>
 				setWorkspaceSwitcherOpen(true),
 			),
 			desktopApi.onMenuSyncWorkspace(() => void refreshFiles()),
+			desktopApi.onMenuToggleTerminal(() => toggleTerminal()),
+			desktopApi.onMenuToggleSourceMode(() => {
+				const current = viewerStore.get();
+				if (
+					!current.currentPath ||
+					!hasMarkdownExtension(current.currentPath)
+				) {
+					return;
+				}
+				setViewerMode(current.viewMode === "source" ? "rich" : "source");
+			}),
 		];
 		return () => {
 			for (const dispose of disposers) dispose();
@@ -371,53 +373,57 @@ function App() {
 									setDismissedVersion(readyVersion ?? "__unknown__")
 								}
 							/>
-						) : htmlAppsCalloutVisible ? (
-							<SidebarHtmlAppsCallout
-								onShowMore={() => setHtmlAppsDialogOpen(true)}
-								onDismiss={dismissHtmlAppsCallout}
-							/>
 						) : undefined
 					}
 				/>
-				<section className="flex-1 overflow-hidden" aria-live="polite">
-					{state.status === "loading" && <p>Loading…</p>}
-					{state.status === "error" && (
-						<p>{state.error ?? "Failed to open file."}</p>
-					)}
-					{state.status !== "loading" &&
-						state.status !== "error" &&
-						!state.currentPath && (
-							<div className="flex h-full items-center justify-center p-6">
-								{hasWorkspace ? (
-									<Button onClick={() => void openFilePicker()}>
-										Open file
-									</Button>
-								) : (
-									<WelcomeScreen
-										onCreateFolder={() => void createWorkspaceWithSidebar()}
-										onOpenFolder={() => void openWorkspaceWithSidebar()}
+				<section
+					className="flex-1 flex flex-col overflow-hidden"
+					aria-live="polite"
+				>
+					<div className="flex-1 min-h-0 relative">
+						{state.status === "loading" && <p>Loading…</p>}
+						{state.status === "error" && (
+							<p>{state.error ?? "Failed to open file."}</p>
+						)}
+						{state.status !== "loading" &&
+							state.status !== "error" &&
+							!state.currentPath && (
+								<div className="flex h-full items-center justify-center p-6">
+									{hasWorkspace ? (
+										<Button onClick={() => void openFilePicker()}>
+											Open file
+										</Button>
+									) : (
+										<WelcomeScreen
+											onCreateFolder={() => void createWorkspaceWithSidebar()}
+											onOpenFolder={() => void openWorkspaceWithSidebar()}
+										/>
+									)}
+								</div>
+							)}
+						{state.status === "ready" && state.currentPath && (
+							<div className="flex h-full min-h-0 flex-col">
+								{state.externalChange.kind === "conflict" && (
+									<ExternalChangeBanner
+										onKeepMyEdits={() => void forceKeepLocalEdits()}
+										onReloadFromDisk={reloadFromDiskConflict}
 									/>
 								)}
+								<DocumentViewer
+									path={state.currentPath}
+									content={state.content}
+									copyAsMarkdownRequest={copyAsMarkdownRequest}
+									viewMode={state.viewMode}
+									onScrollContainerChange={setScrollContainerEl}
+								/>
 							</div>
 						)}
-					{state.status === "ready" && state.currentPath && (
-						<div className="flex h-full min-h-0 flex-col">
-							{state.externalChange.kind === "conflict" && (
-								<ExternalChangeBanner
-									onKeepMyEdits={() => void forceKeepLocalEdits()}
-									onReloadFromDisk={reloadFromDiskConflict}
-								/>
-							)}
-							<DocumentViewer
-								path={state.currentPath}
-								content={state.content}
-								onScrollContainerChange={setScrollContainerEl}
-							/>
-						</div>
-					)}
+					</div>
+					<TerminalPanel />
 				</section>
 			</div>
 			<SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+				<ChatAboutNoteSettingsSection />
 				{updateState ? (
 					<UpdatesSection
 						state={updateState}
@@ -425,16 +431,85 @@ function App() {
 					/>
 				) : null}
 			</SettingsDialog>
-			<HtmlAppsDialog
-				open={htmlAppsDialogOpen}
-				onOpenChange={setHtmlAppsDialogOpen}
-				workspacePath={workspacePath ?? null}
-			/>
 		</main>
 	);
 }
 
+function ChatAboutNoteSettingsSection() {
+	const [draft, setDraft] = useState(() => chatCommandStore.get());
+
+	return (
+		<SettingsSection
+			title="Chat about this note"
+			description={`This command runs in a new terminal when you pick "Chat about this note" from a note's ⋯ menu. The shell replaces $HUBBLE_NOTE_PATH with the current note's file path.`}
+		>
+			<div className="relative">
+				<Input
+					className="font-mono pe-8"
+					spellCheck={false}
+					value={draft}
+					onChange={(event) => {
+						setDraft(event.currentTarget.value);
+						setChatCommand(event.currentTarget.value);
+					}}
+				/>
+				<MingcutePencilLine className="pointer-events-none absolute end-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/60" />
+			</div>
+		</SettingsSection>
+	);
+}
+
 function DocumentViewer({
+	path,
+	content,
+	copyAsMarkdownRequest,
+	viewMode,
+	onScrollContainerChange,
+}: {
+	path: string;
+	content: string;
+	copyAsMarkdownRequest: number;
+	viewMode: ViewMode;
+	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
+}) {
+	if (hasHtmlExtension(path)) {
+		return (
+			<HtmlDocumentViewer
+				// Remount on content change so the iframe reloads the updated file
+				// from disk and a stale load error clears.
+				key={`${path}:${content}`}
+				path={path}
+				content={content}
+				onScrollContainerChange={onScrollContainerChange}
+			/>
+		);
+	}
+
+	return (
+		<>
+			{viewMode === "source" ? (
+				<MarkdownSourceEditor
+					key={`${path}:source:${HMR_REV}`}
+					path={path}
+					initialMarkdown={content}
+					onLocalChange={updateEditorContent}
+					onSave={savePathContent}
+					onScrollContainerChange={onScrollContainerChange}
+				/>
+			) : (
+				<MarkdownEditor
+					key={`${path}:rich:${HMR_REV}`}
+					path={path}
+					initialMarkdown={content}
+					copyAsMarkdownRequest={copyAsMarkdownRequest}
+					onScrollContainerChange={onScrollContainerChange}
+				/>
+			)}
+		</>
+	);
+}
+
+function HtmlDocumentViewer({
 	path,
 	content,
 	onScrollContainerChange,
@@ -443,39 +518,21 @@ function DocumentViewer({
 	content: string;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
 }) {
-	if (hasHtmlExtension(path)) {
-		return (
-			<HtmlDocumentViewer
-				key={`${path}:${content}`}
-				path={path}
-				onScrollContainerChange={onScrollContainerChange}
-			/>
-		);
-	}
-
-	return (
-		<MarkdownEditor
-			key={`${path}:${HMR_REV}`}
-			path={path}
-			initialMarkdown={content}
-			onScrollContainerChange={onScrollContainerChange}
-		/>
-	);
-}
-
-function HtmlDocumentViewer({
-	path,
-	onScrollContainerChange,
-}: {
-	path: string;
-	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
-}) {
 	const workspace = useStoreValue(workspaceStore);
 	const [error, setError] = useState<string | null>(null);
+	const isEmpty = content.trim().length === 0;
 
 	useEffect(() => {
 		onScrollContainerChange?.(null);
 	}, [onScrollContainerChange]);
+
+	// The open file's content updates live as the agent writes to disk, so swap
+	// between the teaching empty state and the rendered app without reopening.
+	if (isEmpty) {
+		return (
+			<HtmlAppEmptyState path={path} workspacePath={workspace.workspacePath} />
+		);
+	}
 
 	return (
 		<div className="flex h-full min-h-0 flex-1 overflow-hidden bg-background">
@@ -524,10 +581,12 @@ function ExternalChangeBanner({
 function MarkdownEditor({
 	path,
 	initialMarkdown,
+	copyAsMarkdownRequest,
 	onScrollContainerChange,
 }: {
 	path: string;
 	initialMarkdown: string;
+	copyAsMarkdownRequest: number;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
 }) {
 	const workspace = useStoreValue(workspaceStore);
@@ -539,6 +598,40 @@ function MarkdownEditor({
 			title: wikiDisplayNameForTarget(target),
 		};
 	});
+	const openExternalLink = useCallback(
+		async (href: string) => {
+			if (classifyHref(href) === "external") {
+				await desktopApi.openExternalUrl(href);
+				return;
+			}
+			const resolved = resolveRelativeLinkPath({
+				href,
+				currentFilePath: path,
+				workspacePath: workspace.workspacePath,
+			});
+			try {
+				const result = await desktopApi.openPathFromLink(resolved);
+				if (result.kind === "markdown") await loadPath(result.path);
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					error.message.includes("Open cancelled")
+				) {
+					return;
+				}
+				if (
+					hasMarkdownExtension(resolved) &&
+					error instanceof Error &&
+					error.message.includes("FILE_NOT_FOUND")
+				) {
+					toast.error(`File not found: ${href.split("#", 1)[0] ?? href}`);
+					return;
+				}
+				throw error;
+			}
+		},
+		[path, workspace.workspacePath],
+	);
 	return (
 		<EditorView
 			path={path}
@@ -556,7 +649,8 @@ function MarkdownEditor({
 			onLocalChange={updateEditorContent}
 			onSave={savePathContent}
 			onScrollContainerChange={onScrollContainerChange}
-			onOpenExternalLink={desktopApi.openExternalUrl}
+			copyAsMarkdownRequest={copyAsMarkdownRequest}
+			onOpenExternalLink={openExternalLink}
 			onOpenWikiLink={(target) =>
 				void loadPath(
 					resolveWikiPath({

@@ -6,7 +6,9 @@ type MockDesktopApi = {
 	listDirectory: ReturnType<typeof vi.fn>;
 	readWorkspaceConfig: ReturnType<typeof vi.fn>;
 	writeWorkspaceConfig: ReturnType<typeof vi.fn>;
+	createFolder: ReturnType<typeof vi.fn>;
 	renameFile: ReturnType<typeof vi.fn>;
+	deleteFile: ReturnType<typeof vi.fn>;
 	pathExists: ReturnType<typeof vi.fn>;
 };
 
@@ -14,10 +16,12 @@ function createDesktopApi(): MockDesktopApi {
 	return {
 		readFileText: vi.fn(async () => "before"),
 		writeFileText: vi.fn(async () => {}),
-		listDirectory: vi.fn(async () => []),
+		listDirectory: vi.fn(async () => ({ files: [], folders: [] })),
 		readWorkspaceConfig: vi.fn(async () => ({ version: 1, pinnedNotes: [] })),
 		writeWorkspaceConfig: vi.fn(async () => {}),
+		createFolder: vi.fn(async () => {}),
 		renameFile: vi.fn(async () => {}),
+		deleteFile: vi.fn(async () => {}),
 		pathExists: vi.fn(async () => false),
 	};
 }
@@ -46,6 +50,40 @@ async function loadStoreActions(api: MockDesktopApi) {
 describe("desktop savePathContent", () => {
 	beforeEach(() => {
 		vi.unstubAllGlobals();
+	});
+
+	it("hydrates the default chat command and persists edits", async () => {
+		const api = createDesktopApi();
+		const { chatCommandStore, setChatCommand } = await loadStoreActions(api);
+		const { STORAGE_KEY } = await import("./persistence");
+		const { DEFAULT_CHAT_COMMAND } = await import("./settings");
+
+		expect(chatCommandStore.get()).toBe(DEFAULT_CHAT_COMMAND);
+
+		setChatCommand("codex exec");
+
+		expect(chatCommandStore.get()).toBe("codex exec");
+		expect(localStorage.setItem).toHaveBeenLastCalledWith(
+			STORAGE_KEY,
+			expect.stringContaining('"chatCommand":"codex exec"'),
+		);
+	});
+
+	it("requests chat with the default command when the setting is blank", async () => {
+		const api = createDesktopApi();
+		const {
+			appStore,
+			requestChatAboutNote,
+			setChatCommand,
+			pendingTerminalCommandStore,
+		} = await loadStoreActions(api);
+		const { DEFAULT_CHAT_COMMAND } = await import("./settings");
+
+		setChatCommand("   ");
+		requestChatAboutNote();
+
+		expect(appStore.get().ui.isTerminalOpen).toBe(true);
+		expect(pendingTerminalCommandStore.get()).toBe(DEFAULT_CHAT_COMMAND);
 	});
 
 	it("preserves newer editor content when an older save finishes", async () => {
@@ -90,6 +128,57 @@ describe("desktop savePathContent", () => {
 		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
 	});
 
+	it("does not treat an in-flight self-save watcher event as an external conflict", async () => {
+		const api = createDesktopApi();
+		let finishWrite: () => void = () => {};
+		api.writeFileText.mockImplementation(
+			() =>
+				new Promise<void>((resolve) => {
+					finishWrite = resolve;
+				}),
+		);
+		const {
+			appStore,
+			handleExternalFileChange,
+			savePathContent,
+			updateEditorContent,
+			viewerStore,
+		} = await loadStoreActions(api);
+		const path = "/workspace/note.md";
+
+		appStore.set((current) => ({
+			...current,
+			document: {
+				...current.document,
+				currentPath: path,
+				lastOpenedPath: path,
+				content: "draft 1",
+				diskContent: "before",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		const save = savePathContent(path, "draft 1");
+		await Promise.resolve();
+		expect(api.writeFileText).toHaveBeenCalledWith(path, "draft 1");
+
+		updateEditorContent(path, "draft 2");
+		handleExternalFileChange(path, "draft 1");
+
+		expect(viewerStore.get().content).toBe("draft 2");
+		expect(viewerStore.get().diskContent).toBe("draft 1");
+		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
+
+		finishWrite();
+		await save;
+
+		expect(viewerStore.get().content).toBe("draft 2");
+		expect(viewerStore.get().diskContent).toBe("draft 1");
+		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
+	});
+
 	it("uses latest editor content when classifying disk changes", async () => {
 		const api = createDesktopApi();
 		// The file now matches what the user just typed, even though the save
@@ -121,6 +210,60 @@ describe("desktop savePathContent", () => {
 		expect(viewerStore.get().diskContent).toBe("draft 2");
 		expect(viewerStore.get().externalChange).toEqual({ kind: "none" });
 	});
+
+	it("switches view mode without changing editor content", async () => {
+		const api = createDesktopApi();
+		const { appStore, setViewerMode, viewerStore } =
+			await loadStoreActions(api);
+		const path = "/workspace/note.md";
+
+		appStore.set((current) => ({
+			...current,
+			document: {
+				...current.document,
+				currentPath: path,
+				lastOpenedPath: path,
+				content: "draft",
+				diskContent: "before",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		setViewerMode("source");
+
+		expect(viewerStore.get().viewMode).toBe("source");
+		expect(viewerStore.get().content).toBe("draft");
+	});
+
+	it("resets source mode when opening another file", async () => {
+		const api = createDesktopApi();
+		api.readFileText.mockResolvedValue("next file");
+		const { appStore, loadPath, setViewerMode, viewerStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			document: {
+				...current.document,
+				currentPath: "/workspace/old.md",
+				lastOpenedPath: "/workspace/old.md",
+				content: "old file",
+				diskContent: "old file",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+		setViewerMode("source");
+
+		await loadPath("/workspace/next.md");
+
+		expect(viewerStore.get().currentPath).toBe("/workspace/next.md");
+		expect(viewerStore.get().content).toBe("next file");
+		expect(viewerStore.get().viewMode).toBe("rich");
+	});
 });
 
 describe("desktop renameMarkdownFile", () => {
@@ -131,9 +274,10 @@ describe("desktop renameMarkdownFile", () => {
 	it("reopens the active file from its renamed path", async () => {
 		const api = createDesktopApi();
 		api.readFileText.mockResolvedValue("embed content");
-		api.listDirectory.mockResolvedValue([
-			{ path: "/workspace/renamed.md", modified_at: 1 },
-		]);
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/renamed.md", modified_at: 1 }],
+			folders: [],
+		});
 		const { appStore, renameMarkdownFile, viewerStore, workspaceStore } =
 			await loadStoreActions(api);
 		const path = "/workspace/original.md";
@@ -196,9 +340,10 @@ describe("desktop renameMarkdownFile", () => {
 
 	it("renames to nested paths relative to the current folder", async () => {
 		const api = createDesktopApi();
-		api.listDirectory.mockResolvedValue([
-			{ path: "/workspace/notes/archive/q1-plan.md", modified_at: 1 },
-		]);
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/notes/archive/q1-plan.md", modified_at: 1 }],
+			folders: [],
+		});
 		const { appStore, renameMarkdownFile, viewerStore } =
 			await loadStoreActions(api);
 
@@ -234,9 +379,12 @@ describe("desktop renameMarkdownFile", () => {
 
 	it("renames to nested paths in Windows workspaces", async () => {
 		const api = createDesktopApi();
-		api.listDirectory.mockResolvedValue([
-			{ path: "C:/workspace/notes/archive/q1-plan.md", modified_at: 1 },
-		]);
+		api.listDirectory.mockResolvedValue({
+			files: [
+				{ path: "C:/workspace/notes/archive/q1-plan.md", modified_at: 1 },
+			],
+			folders: [],
+		});
 		const { appStore, renameMarkdownFile, viewerStore } =
 			await loadStoreActions(api);
 
@@ -444,6 +592,148 @@ describe("desktop renameMarkdownFile", () => {
 	});
 });
 
+describe("desktop folder actions", () => {
+	beforeEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("creates a unique folder and adds it to the sidebar snapshot", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [],
+			folders: [{ path: "/workspace/new-folder-2", modified_at: 2 }],
+		});
+		const { appStore, createFolderInFolder, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				folders: [{ path: "/workspace/new-folder", modified_at: 1 }],
+			},
+		}));
+
+		const path = await createFolderInFolder("/workspace");
+
+		expect(path).toBe("/workspace/new-folder-2");
+		expect(api.createFolder).toHaveBeenCalledWith("/workspace/new-folder-2");
+		expect(workspaceStore.get().folders).toEqual([
+			{ path: "/workspace/new-folder-2", modified_at: 2 },
+		]);
+	});
+
+	it("renames folders and rewrites contained workspace paths", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/archive/plan.md", modified_at: 2 }],
+			folders: [{ path: "/workspace/archive", modified_at: 2 }],
+		});
+		const { appStore, renameFolder, viewerStore, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [{ path: "/workspace/drafts/plan.md", modified_at: 1 }],
+				folders: [{ path: "/workspace/drafts", modified_at: 1 }],
+				pinnedNotes: ["/workspace/drafts/plan.md"],
+				lastOpenedPaths: { "/workspace": "/workspace/drafts/plan.md" },
+			},
+			document: {
+				...current.document,
+				currentPath: "/workspace/drafts/plan.md",
+				lastOpenedPath: "/workspace/drafts/plan.md",
+				content: "[Self](plan.md)",
+				diskContent: "[Self](plan.md)",
+				externalChange: { kind: "none" },
+				status: "ready",
+				error: null,
+			},
+		}));
+
+		await renameFolder("/workspace/drafts", "archive");
+
+		expect(api.renameFile).toHaveBeenCalledWith(
+			"/workspace/drafts",
+			"/workspace/archive",
+		);
+		expect(viewerStore.get().currentPath).toBe("/workspace/archive/plan.md");
+		expect(workspaceStore.get().pinnedNotes).toEqual([
+			"/workspace/archive/plan.md",
+		]);
+		expect(api.writeWorkspaceConfig).toHaveBeenCalledWith("/workspace", {
+			version: 1,
+			pinnedNotes: ["archive/plan.md"],
+		});
+	});
+
+	it("renames compacted nested folders to the requested display path", async () => {
+		const api = createDesktopApi();
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/archive/plan.md", modified_at: 2 }],
+			folders: [{ path: "/workspace/archive", modified_at: 2 }],
+		});
+		const { appStore, renameFolder } = await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+				files: [{ path: "/workspace/drafts/current/plan.md", modified_at: 1 }],
+				folders: [
+					{ path: "/workspace/drafts", modified_at: 1 },
+					{ path: "/workspace/drafts/current", modified_at: 1 },
+				],
+			},
+		}));
+
+		await renameFolder(
+			"/workspace/drafts/current",
+			"archive",
+			"/workspace/archive",
+		);
+
+		expect(api.renameFile).toHaveBeenCalledWith(
+			"/workspace/drafts/current",
+			"/workspace/archive",
+		);
+		expect(api.renameFile).not.toHaveBeenCalledWith(
+			"/workspace/drafts/current",
+			"/workspace/drafts/current/archive",
+		);
+		expect(api.deleteFile).toHaveBeenCalledWith("/workspace/drafts");
+	});
+
+	it("deletes a freshly created folder when inline naming is canceled", async () => {
+		const api = createDesktopApi();
+		const { appStore, createFolderInFolder, deleteFolder, workspaceStore } =
+			await loadStoreActions(api);
+
+		appStore.set((current) => ({
+			...current,
+			workspace: {
+				...current.workspace,
+				workspacePath: "/workspace",
+			},
+		}));
+
+		const path = await createFolderInFolder("/workspace");
+		if (!path) throw new Error("Expected created folder path");
+		await deleteFolder(path);
+
+		expect(api.createFolder).toHaveBeenCalledWith("/workspace/new-folder");
+		expect(api.deleteFile).toHaveBeenCalledWith("/workspace/new-folder", {
+			recursive: true,
+		});
+		expect(workspaceStore.get().folders).toEqual([]);
+	});
+});
+
 describe("desktop moveSidebarItem", () => {
 	beforeEach(() => {
 		vi.unstubAllGlobals();
@@ -451,9 +741,10 @@ describe("desktop moveSidebarItem", () => {
 
 	it("moves a file to a folder and updates opened state", async () => {
 		const api = createDesktopApi();
-		api.listDirectory.mockResolvedValue([
-			{ path: "/workspace/archive/note.md", modified_at: 1 },
-		]);
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: "/workspace/archive/note.md", modified_at: 1 }],
+			folders: [],
+		});
 		const { appStore, moveSidebarItem, viewerStore, workspaceStore } =
 			await loadStoreActions(api);
 
@@ -702,9 +993,10 @@ describe("desktop loadPath", () => {
 		api.readFileText.mockRejectedValue(
 			new Error(`ENOENT: no such file or directory, open '${missingPath}'`),
 		);
-		api.listDirectory.mockResolvedValue([
-			{ path: remainingPath, modified_at: 2 },
-		]);
+		api.listDirectory.mockResolvedValue({
+			files: [{ path: remainingPath, modified_at: 2 }],
+			folders: [],
+		});
 		const { appStore, loadPath, workspaceStore } = await loadStoreActions(api);
 
 		appStore.set((current) => ({
@@ -735,7 +1027,7 @@ describe("desktop loadPath", () => {
 			api.readFileText.mockRejectedValue(
 				new Error("ENOENT: no such file or directory"),
 			);
-			api.listDirectory.mockResolvedValue([]);
+			api.listDirectory.mockResolvedValue({ files: [], folders: [] });
 			const { appStore, loadPath } = await loadStoreActions(api);
 
 			appStore.set((current) => ({

@@ -33,17 +33,23 @@ From repo root:
 
 ```sh
 pnpm build:desktop
-pnpm bundle:desktop
+pnpm bundle:desktop:mac    # macOS (.dmg, .zip)
+pnpm bundle:desktop:win    # Windows (NSIS .exe installer)
+pnpm bundle:desktop:linux  # Linux (.AppImage, .deb)
 ```
 
-`bundle:desktop` creates macOS release artifacts under `apps/desktop/release/`.
+Each `bundle:desktop:*` command creates release artifacts under `apps/desktop/release/`.
+Build a given platform's artifacts on that platform.
 
 ## Distribution
 
-The desktop app is macOS-only for now. Production updates use GitHub Releases
-on `HighBeamCapital/hubble.md`. Each release should include:
+Production updates use GitHub Releases on `HighBeamCapital/hubble.md`, built by the
+`Desktop Release` workflow when a `desktop-v*` tag is pushed. Artifacts per platform:
 
-- `latest-mac.yml`
-- the generated `.zip`
-- the generated `.dmg`
+- **macOS** — `latest-mac.yml`, the `.zip`, and the `.dmg`
+- **Windows** — the NSIS `.exe` installer
+- **Linux** — the `.AppImage` and `.deb`
+
+In-app auto-updates are currently macOS-only; Windows and Linux users update by
+installing the latest release.
 

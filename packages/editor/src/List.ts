@@ -216,8 +216,18 @@ export const ListToggleExtension = Extension.create({
 				return false;
 			},
 			Enter: ({ editor }) => {
-				if (isSelectionAtStartOfNode(editor.view.state.selection)) {
+				const { selection } = editor.view.state;
+				if (isSelectionAtStartOfNode(selection)) {
 					return editor.commands.liftListItem("listItem");
+				}
+				// Splitting a task item should always start the new item unchecked
+				const { $from } = selection;
+				for (let depth = $from.depth; depth > 0; depth--) {
+					if (isTaskItem($from.node(depth))) {
+						return editor.commands.splitListItem("listItem", {
+							checked: false,
+						});
+					}
 				}
 				return false;
 			},

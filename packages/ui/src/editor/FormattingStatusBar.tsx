@@ -10,9 +10,13 @@ import { Button } from "../primitives/button";
 
 type CountMode = "words" | "chars";
 
-type PaletteState = {
+type CountState = {
 	wordCount: number;
 	charCount: number;
+	isSelectionCount: boolean;
+};
+
+type PaletteState = CountState & {
 	activeMarkNames: string[];
 	canEscapeBoundary: boolean;
 	showDashedDivider: boolean;
@@ -29,6 +33,7 @@ export function FormattingStatusBar({
 	const [paletteState, setPaletteState] = useState<PaletteState>({
 		wordCount: 0,
 		charCount: 0,
+		isSelectionCount: false,
 		activeMarkNames: [],
 		canEscapeBoundary: false,
 		showDashedDivider: false,
@@ -42,17 +47,14 @@ export function FormattingStatusBar({
 			null;
 
 		const update = () => {
-			const text = editor.getText();
-			const wordCount = countWords(text);
-			const charCount = text.length;
+			const counts = getFormattingStatusCounts(editor);
 			const { state } = editor;
 			const showDashedDivider = shouldShowFooterDivider(
 				resolvedScrollContainer,
 			);
 			if (!editor.isFocused || !state.selection.empty) {
 				setPaletteState({
-					wordCount,
-					charCount,
+					...counts,
 					activeMarkNames: [],
 					canEscapeBoundary: false,
 					showDashedDivider,
@@ -62,8 +64,7 @@ export function FormattingStatusBar({
 
 			const caretState = getCaretFormattingState(state);
 			setPaletteState({
-				wordCount,
-				charCount,
+				...counts,
 				activeMarkNames: caretState.activeMarkNames,
 				canEscapeBoundary: caretState.canEscapeBoundary,
 				showDashedDivider,
@@ -110,9 +111,7 @@ export function FormattingStatusBar({
 				}
 				onClick={() => setCountMode((m) => (m === "words" ? "chars" : "words"))}
 			>
-				{countMode === "words"
-					? `${paletteState.wordCount} words`
-					: `${paletteState.charCount} characters`}
+				{formatCountLabel(countMode, paletteState)}
 			</Button>
 			<div className="flex items-center gap-2 text-muted-foreground">
 				{paletteState.canEscapeBoundary && (
@@ -135,6 +134,27 @@ export function FormattingStatusBar({
 			</div>
 		</div>
 	);
+}
+
+function getFormattingStatusCounts(editor: Editor): CountState {
+	const { state } = editor;
+	const isSelectionCount = editor.isFocused && !state.selection.empty;
+	const text = isSelectionCount
+		? state.doc.textBetween(state.selection.from, state.selection.to, " ")
+		: editor.getText();
+
+	return {
+		wordCount: countWords(text),
+		charCount: text.length,
+		isSelectionCount,
+	};
+}
+
+function formatCountLabel(mode: CountMode, counts: CountState) {
+	const suffix = counts.isSelectionCount ? " selected" : "";
+	return mode === "words"
+		? `${counts.wordCount} words${suffix}`
+		: `${counts.charCount} characters${suffix}`;
 }
 
 function countWords(text: string) {

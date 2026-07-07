@@ -2,21 +2,27 @@
 import Base from "../layouts/Base.astro";
 
 // shared bits
-const RIGHT = "M40.2026 47.0052L38.8342 47.2636C33.8143 48.2115 28.9764 44.9104 28.0285 39.8905L23.5926 16.3984C22.6449 11.3786 25.9458 6.54062 30.9657 5.59275L32.3341 5.33436C39.5246 3.9766 46.4545 8.70527 47.8125 15.8958L50.764 31.5268C52.1218 38.7175 47.3933 45.6474 40.2026 47.0052Z";
-const LEFT = "M11.9097 8.99L12.5921 8.85163C19.0583 7.54056 25.363 11.7196 26.6741 18.1858L30.4145 36.6336C31.7253 43.0997 27.5464 49.4045 21.0804 50.7156L20.398 50.854C14.3088 52.0886 8.37162 48.1529 7.13679 42.0638L3.11962 22.2512C1.88496 16.1619 5.82043 10.2246 11.9097 8.99Z";
+const RIGHT =
+	"M40.2026 47.0052L38.8342 47.2636C33.8143 48.2115 28.9764 44.9104 28.0285 39.8905L23.5926 16.3984C22.6449 11.3786 25.9458 6.54062 30.9657 5.59275L32.3341 5.33436C39.5246 3.9766 46.4545 8.70527 47.8125 15.8958L50.764 31.5268C52.1218 38.7175 47.3933 45.6474 40.2026 47.0052Z";
+const LEFT =
+	"M11.9097 8.99L12.5921 8.85163C19.0583 7.54056 25.363 11.7196 26.6741 18.1858L30.4145 36.6336C31.7253 43.0997 27.5464 49.4045 21.0804 50.7156L20.398 50.854C14.3088 52.0886 8.37162 48.1529 7.13679 42.0638L3.11962 22.2512C1.88496 16.1619 5.82043 10.2246 11.9097 8.99Z";
 // 4-point sparkle in a 24x24 box, center 12,12
-const SPK = "M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z";
-const FG = "#173d2e", CREAM = "#fff8e7", GOLD = "#ffc21f", WHITE = "#fff";
+const SPK =
+	"M12 0C13 8 16 11 24 12C16 13 13 16 12 24C11 16 8 13 0 12C8 11 11 8 12 0Z";
+const FG = "#173d2e",
+	CREAM = "#fff8e7",
+	GOLD = "#ffc21f",
+	WHITE = "#fff";
 
 const sparkle = (x, y, s, fill) =>
-  `<path transform="translate(${x - 12 * s} ${y - 12 * s}) scale(${s})" d="${SPK}" fill="${fill}"/>`;
+	`<path transform="translate(${x - 12 * s} ${y - 12 * s}) scale(${s})" d="${SPK}" fill="${fill}"/>`;
 
 const marks = [
-  {
-    id: "twinkle",
-    name: "Twinkle Eye",
-    desc: "Closest to today's mark — keeps the body, but the eye's glint becomes a sparkle, with a star nearby. Minimal evolution.",
-    svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+	{
+		id: "twinkle",
+		name: "Twinkle Eye",
+		desc: "Closest to today's mark — keeps the body, but the eye's glint becomes a sparkle, with a star nearby. Minimal evolution.",
+		svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(4 3.5)">
         <path d="${RIGHT}" fill="${CREAM}" stroke="${FG}" stroke-width="2"/>
         <path d="${LEFT}" fill="${CREAM}" stroke="${FG}" stroke-width="2"/>
@@ -25,12 +31,12 @@ const marks = [
       </g>
       ${sparkle(52, 12, 0.42, GOLD)}
     </svg>`,
-  },
-  {
-    id: "stargazer",
-    name: "Stargazer",
-    desc: "The character looks up at a star — gives it personality and a clear telescope intent (gazing at the sky).",
-    svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+	},
+	{
+		id: "stargazer",
+		name: "Stargazer",
+		desc: "The character looks up at a star — gives it personality and a clear telescope intent (gazing at the sky).",
+		svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
       <g transform="translate(4 3.5)">
         <path d="${RIGHT}" fill="${CREAM}" stroke="${FG}" stroke-width="2"/>
         <path d="${LEFT}" fill="${CREAM}" stroke="${FG}" stroke-width="2"/>
@@ -40,12 +46,12 @@ const marks = [
       ${sparkle(54, 12, 0.5, GOLD)}
       ${sparkle(45, 6, 0.28, GOLD)}
     </svg>`,
-  },
-  {
-    id: "saturn",
-    name: "Saturn Eye",
-    desc: "Eye as a ringed planet. The orbit ring breaks the 'security-camera' read and signals space — works without the body.",
-    svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+	},
+	{
+		id: "saturn",
+		name: "Saturn Eye",
+		desc: "Eye as a ringed planet. The orbit ring breaks the 'security-camera' read and signals space — works without the body.",
+		svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="32" cy="33" rx="27" ry="9.5" fill="none" stroke="${FG}" stroke-width="3" transform="rotate(-20 32 33)"/>
       <circle cx="32" cy="32" r="15.5" fill="${CREAM}" stroke="${FG}" stroke-width="3"/>
       <circle cx="32" cy="32" r="8" fill="${FG}"/>
@@ -53,12 +59,12 @@ const marks = [
       <path d="M32 16.5 a 15.5 15.5 0 0 1 0 31" fill="none"/>
       ${sparkle(54, 11, 0.34, GOLD)}
     </svg>`,
-  },
-  {
-    id: "telescope",
-    name: "Telescope",
-    desc: "A literal little telescope on a tripod — the lens is the Hubble eye, pointed at a star. Most explicit nod to the name.",
-    svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" stroke-linecap="round" stroke-linejoin="round">
+	},
+	{
+		id: "telescope",
+		name: "Telescope",
+		desc: "A literal little telescope on a tripod — the lens is the Hubble eye, pointed at a star. Most explicit nod to the name.",
+		svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" stroke-linecap="round" stroke-linejoin="round">
       <!-- legs -->
       <path d="M30 34 L21 53 M30 34 L33 55 M30 34 L41 50" stroke="${FG}" stroke-width="3" fill="none"/>
       <!-- tube -->
@@ -72,12 +78,12 @@ const marks = [
       <circle cx="47.5" cy="15.5" r="1.6" fill="${WHITE}"/>
       ${sparkle(56, 9, 0.3, GOLD)}
     </svg>`,
-  },
-  {
-    id: "spyglass",
-    name: "Spyglass",
-    desc: "A playful handheld telescope, tilted up. Hand-drawn energy; the lens carries a golden glint.",
-    svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+	},
+	{
+		id: "spyglass",
+		name: "Spyglass",
+		desc: "A playful handheld telescope, tilted up. Hand-drawn energy; the lens carries a golden glint.",
+		svg: `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
       <g transform="rotate(-26 32 32)" stroke="${FG}" stroke-width="2" stroke-linejoin="round">
         <rect x="9" y="27" width="12" height="10" rx="3" fill="${CREAM}"/>
         <rect x="19" y="24.5" width="20" height="15" rx="4" fill="${CREAM}"/>
@@ -86,7 +92,7 @@ const marks = [
       </g>
       ${sparkle(13, 13, 0.34, GOLD)}
     </svg>`,
-  },
+	},
 ];
 ---
 <Base title="Hubble — logo riffs">

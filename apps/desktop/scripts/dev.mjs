@@ -178,7 +178,7 @@ async function createDevApp(sourceAppPath, electronVersion) {
 async function ensurePlayground() {
 	if (await pathExists(playgroundPath)) return;
 	await fs.mkdir(devAppDir, { recursive: true });
-	run("/usr/bin/ditto", [fixturePath, playgroundPath]);
+	await fs.cp(fixturePath, playgroundPath, { recursive: true });
 }
 
 async function ensurePlaygroundHtml() {
@@ -282,16 +282,17 @@ function startElectronVite(env) {
 
 const env = { ...process.env };
 
+await ensurePlayground();
+await ensurePlaygroundHtml();
+// Default to the playground, but let an explicit env value win (set it empty
+// to launch with no workspace and test the first-run welcome screen).
+env.HUBBLE_DESKTOP_DEV_WORKSPACE =
+	process.env.HUBBLE_DESKTOP_DEV_WORKSPACE ?? playgroundPath;
+
 if (process.platform === "darwin") {
 	env.ELECTRON_EXEC_PATH = await ensureDevApp();
 	env.HUBBLE_DESKTOP_FORCE_DEV = "1";
 	env.HUBBLE_DESKTOP_DEV_APP_NAME = devAppName;
-	await ensurePlayground();
-	await ensurePlaygroundHtml();
-	// Default to the playground, but let an explicit env value win (set it empty
-	// to launch with no workspace and test the first-run welcome screen).
-	env.HUBBLE_DESKTOP_DEV_WORKSPACE =
-		process.env.HUBBLE_DESKTOP_DEV_WORKSPACE ?? playgroundPath;
 	await killExistingDevAppProcesses();
 	console.log(`Computer Use app: ${devBundleId}`);
 	console.log(`Playground: ${playgroundPath}`);

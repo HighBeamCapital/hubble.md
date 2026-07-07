@@ -6,16 +6,19 @@ import {
 } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import type { ReactNode } from "react";
-import { toast } from "sonner";
 import { desktopApi } from "../desktopApi";
+import { copyText } from "../lib/clipboard";
 import { revealFileLabel } from "../lib/revealFile";
 import {
+	createFolderInFolder,
+	createHtmlFileInFolder,
 	createMarkdownFileInFolder,
 	deleteFolder,
 	deleteMarkdownFile,
 	loadPath,
-	moveSidebarItem,
+	moveSidebarItems,
 	openWorkspace,
+	renameFolder,
 	renameMarkdownFile,
 	setSidebarOpen,
 	setSortMode,
@@ -38,7 +41,7 @@ export function Sidebar({
 	const workspace = useStoreValue(workspaceStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const currentPath = useStoreValue(currentPathStore);
-	const { workspacePath, files, pinnedNotes, sortMode } = workspace;
+	const { workspacePath, files, folders, pinnedNotes, sortMode } = workspace;
 	const pinnedSet = new Set(pinnedNotes);
 
 	if (!sidebarOpen) return null;
@@ -79,14 +82,7 @@ export function Sidebar({
 			? `${workspacePath}${normalized}`
 			: `${workspacePath}/${normalized}`;
 	};
-	const copyFilePath = async (path: string) => {
-		try {
-			await navigator.clipboard.writeText(path);
-			toast.success("File path copied");
-		} catch {
-			toast.error("Failed to copy file path");
-		}
-	};
+	const copyFilePath = (path: string) => copyText(path, "File path");
 
 	return (
 		<SharedSidebar
@@ -94,6 +90,10 @@ export function Sidebar({
 				path: file.path,
 				modifiedAt: file.modified_at,
 				pinned: pinnedSet.has(file.path),
+			}))}
+			folders={folders.map((folder) => ({
+				path: folder.path,
+				modifiedAt: folder.modified_at,
 			}))}
 			currentPath={currentPath ?? null}
 			sortMode={sortMode}
@@ -120,14 +120,27 @@ export function Sidebar({
 			}}
 			revealLabel={revealFileLabel(desktopApi.platform)}
 			onRenameFile={(path, nextName) => void renameMarkdownFile(path, nextName)}
+			onRenameFolder={(folderId, nextName, targetDisplayPath) =>
+				void renameFolder(
+					absolutePath(folderId),
+					nextName,
+					absolutePath(targetDisplayPath),
+				)
+			}
 			onDeleteFile={(path) => void deleteMarkdownFile(path)}
 			onTogglePinnedFile={(path) => void togglePinnedNote(path)}
 			onCreateFile={(folderId) =>
 				createMarkdownFileInFolder(absolutePath(folderId))
 			}
+			onCreateHtmlFile={(folderId) =>
+				createHtmlFileInFolder(absolutePath(folderId))
+			}
+			onCreateFolder={(folderId) =>
+				createFolderInFolder(absolutePath(folderId))
+			}
 			onDeleteFolder={(folderId) => void deleteFolder(absolutePath(folderId))}
-			onMoveItem={({ item, targetFolderId }) =>
-				void moveSidebarItem(item, absolutePath(targetFolderId))
+			onMoveItem={({ items, targetFolderId }) =>
+				void moveSidebarItems(items, absolutePath(targetFolderId))
 			}
 		/>
 	);

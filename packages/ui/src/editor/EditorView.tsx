@@ -1,5 +1,7 @@
 import {
 	combineMarkdownFrontMatter,
+	FakeSelectionExtension,
+	FindExtension,
 	HeadingExtension,
 	LinkExtension,
 	listExtensions,
@@ -11,6 +13,10 @@ import {
 } from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
 import { TaskItem } from "@tiptap/extension-list";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import {
 	EditorContent,
 	type EditorOptions,
@@ -20,22 +26,31 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CODE_BLOCK_COPY_EVENT, HubbleCodeBlock } from "./CodeBlockExtension";
+import { copySelectionAsMarkdown } from "./copyAsMarkdown";
 import { LinkClickExtension } from "./LinkClickExtension";
 import { LinkCreationGhostExtension } from "./LinkCreationGhostExtension";
 import { LinkPopover, type WikiTarget } from "./LinkPopover";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { SmartLinkExtension } from "./SmartLinkExtension";
+import { TableCellSelectionExtension } from "./TableCellSelectionExtension";
 import { VirtualCursor } from "./VirtualCursor";
 import "./EditorView.css";
 import {
 	FilePropertiesPanel,
 	frontMatterStateFromMarkdown,
 } from "./FilePropertiesPanel";
+import { FindBar } from "./FindBar";
 import { FormatCommandMenu } from "./FormatCommandMenu";
 import { FormattingStatusBar } from "./FormattingStatusBar";
+import { SelectionFormattingToolbar } from "./SelectionFormattingToolbar";
 import type { VirtualCursorMode } from "./virtualCursorMode";
 
 const DEFAULT_SAVE_DEBOUNCE_MS = 120;
+
+// Markdown table cells should not hold block content, so cells allow exactly one
+// paragraph (line breaks serialize as <br>)
+const InlineTableCell = TableCell.extend({ content: "paragraph" });
+const InlineTableHeader = TableHeader.extend({ content: "paragraph" });
 
 export type { WikiTarget };
 
@@ -51,6 +66,7 @@ export type EditorViewProps = {
 	onLocalChange: (path: string, markdown: string) => void;
 	onSave: (path: string, markdown: string) => void | Promise<void>;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
+	copyAsMarkdownRequest?: number;
 	onOpenExternalLink: (href: string) => void | Promise<void>;
 	onOpenWikiLink: (target: string) => void | Promise<void>;
 	onMessage?: (message: string, type: "success" | "error") => void;
@@ -68,6 +84,7 @@ export function EditorView({
 	onLocalChange,
 	onSave,
 	onScrollContainerChange,
+	copyAsMarkdownRequest = 0,
 	onOpenExternalLink,
 	onOpenWikiLink,
 	onMessage,
@@ -90,6 +107,7 @@ export function EditorView({
 	const saveTimerRef = useRef<number | null>(null);
 	const editorRootRef = useRef<HTMLDivElement | null>(null);
 	const editorViewportRef = useRef<HTMLDivElement | null>(null);
+	const lastCopyAsMarkdownRequestRef = useRef(copyAsMarkdownRequest);
 	const [editorViewportEl, setEditorViewportEl] =
 		useState<HTMLDivElement | null>(null);
 	const [cursorModeOverride, setCursorModeOverride] =
@@ -135,12 +153,19 @@ export function EditorView({
 			SmartLinkExtension,
 			LinkClickExtension.configure({ onOpenExternalLink, onOpenWikiLink }),
 			LinkCreationGhostExtension,
+			FakeSelectionExtension,
+			FindExtension,
 			HeadingExtension,
 			MarkdownRolloverExtension,
 			StrikethroughShortcutExtension,
 			...listExtensions,
 			...extensions,
 			TaskItem.configure({ nested: true }),
+			Table.configure({ resizable: true }),
+			TableRow,
+			InlineTableHeader,
+			InlineTableCell,
+			TableCellSelectionExtension,
 		],
 		content: initialDoc,
 		onUpdate: ({ editor: current }) => {
@@ -234,6 +259,16 @@ export function EditorView({
 			window.removeEventListener(CODE_BLOCK_COPY_EVENT, handleCopyMessage);
 	}, [onMessage]);
 
+	useEffect(() => {
+		if (!editor || copyAsMarkdownRequest === 0) return;
+		if (copyAsMarkdownRequest === lastCopyAsMarkdownRequestRef.current) return;
+		lastCopyAsMarkdownRequestRef.current = copyAsMarkdownRequest;
+		void copySelectionAsMarkdown({
+			editor,
+			onCopied: () => onMessage?.("Markdown copied", "success"),
+		});
+	}, [copyAsMarkdownRequest, editor, onMessage]);
+
 	return (
 		<div
 			className="relative flex h-full min-h-0 flex-col"
@@ -277,8 +312,13 @@ export function EditorView({
 					onCursorModeChange={setCursorModeOverride}
 				/>
 				<SlashCommandMenu editor={editor} viewportRef={editorViewportRef} />
+				<SelectionFormattingToolbar
+					editor={editor}
+					viewportRef={editorViewportRef}
+				/>
 				<FormatCommandMenu editor={editor} viewportRef={editorViewportRef} />
 			</div>
+			<FindBar editor={editor} />
 			<FormattingStatusBar editor={editor} scrollContainer={editorViewportEl} />
 		</div>
 	);

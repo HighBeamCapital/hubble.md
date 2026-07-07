@@ -1,17 +1,16 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The triage agent assigns exactly one readiness label per issue. This file maps those states to the label strings used in this repo's issue tracker.
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-spec`           | `ready-for-spec`     | Feature is clearly outlined, ready for product and tech specs  |
-| `ready-for-agent`          | `ready-for-agent`    | Feature or bug is fully specified, ready for an agent to implement           |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| Label                | Meaning                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `needs-triage`       | Maintainer or triage agent needs to evaluate this issue                             |
+| `ready-to-implement` | Behavior and scope are clear; anyone (contributor or agent) can pick this up        |
+| `needs-discussion`   | Open product or technical questions; discuss on the issue before implementing       |
+| `wontfix`            | Will not be actioned (human-applied)                                                |
 
-Use `ready-for-spec` when a feature or bug is large enough to require product and tech specs for a human to review.
+Use `ready-to-implement` when the issue is clearly outlined and implementation can start without further product decisions.
 
-Use `ready-for-agent` when a feature or bug is clearly outlined, and implementation is possible without further specification.
+Use `needs-discussion` for everything else: ambiguity, open design decisions, or uncertain fit. The triage comment should leave concrete clarifying questions so the discussion can start immediately.
 
-Edit the right-hand column to match whatever vocabulary you actually use.
+Older labels (`ready-for-spec`, `ready-for-agent`, `needs-info`, `wait-to-implement`) are retired from the triage flow; `ready-for-spec` was renamed to `needs-discussion` and `ready-for-agent` to `ready-to-implement`.

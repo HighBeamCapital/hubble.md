@@ -135,9 +135,26 @@ function blockToPM(node: Content): JSONContent[] {
 				},
 			];
 		}
-		case "table":
-		case "tableRow":
-		case "tableCell":
+		case "table": {
+			const tableNode = node as import("mdast").Table;
+			return [
+				{
+					type: "table",
+					content: tableNode.children.map((row, rowIndex) => ({
+						type: "tableRow",
+						content: row.children.map((cell) => ({
+							type: rowIndex === 0 ? "tableHeader" : "tableCell",
+							content: [
+								{
+									type: "paragraph",
+									content: inlineToPM(cell.children ?? []),
+								},
+							],
+						})),
+					})),
+				},
+			];
+		}
 		case "image": {
 			return imageToPM(node as Image);
 		}
@@ -293,7 +310,11 @@ function inlineToPM(children: Content[]): JSONContent[] {
 				if (child.alt) out.push({ type: "text", text: child.alt });
 				break;
 			case "html":
-				if (child.value) out.push({ type: "text", text: child.value });
+				if (isHtmlLineBreak(child.value)) {
+					out.push({ type: "hardBreak" });
+				} else if (child.value) {
+					out.push({ type: "text", text: child.value });
+				}
 				break;
 			default:
 				// Unknown inline; ignore.
@@ -301,6 +322,10 @@ function inlineToPM(children: Content[]): JSONContent[] {
 		}
 	}
 	return out;
+}
+
+function isHtmlLineBreak(value: string | undefined): boolean {
+	return typeof value === "string" && /^<br\s*\/?>$/i.test(value.trim());
 }
 
 function textToPM(text: string): JSONContent[] {

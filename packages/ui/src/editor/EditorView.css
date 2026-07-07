@@ -243,6 +243,16 @@
 	border-radius: 2px;
 }
 
+[data-hubble-editor] .pm-find-match {
+	background: color-mix(in oklab, var(--brand) 22%, transparent);
+	border-radius: 2px;
+}
+
+[data-hubble-editor] .pm-find-match-current {
+	background: color-mix(in oklab, var(--brand) 38%, transparent);
+	box-shadow: 0 0 0 1px color-mix(in oklab, var(--brand) 45%, transparent);
+}
+
 [data-hubble-editor]
 	:is(.pm-md-delimiter, .ProseMirror code, .ProseMirror pre) {
 	font-family:
@@ -290,6 +300,55 @@
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 160ms var(--ease-snappy);
+}
+
+[data-hubble-source-editor] .editorViewport {
+	display: flex;
+	flex-direction: column;
+	padding-block: 0;
+}
+
+/* Tiptap's EditorContent wrapper sits between the viewport and .ProseMirror. */
+[data-hubble-source-editor] .editorViewport > div {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-block-size: 0;
+}
+
+[data-hubble-source-editor] .ProseMirror {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	padding-block: var(--editor-padding-block, 1.25rem);
+	/* The rich editor hides the native caret in favor of the virtual cursor;
+	 * source mode has no virtual cursor, so restore a native caret in the
+	 * same accent color. */
+	caret-color: var(--brand-accent);
+}
+
+[data-hubble-source-editor] .ProseMirror > .react-renderer.node-codeBlock {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	margin-block: 0;
+}
+
+[data-hubble-source-editor] .pm-code-block {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+}
+
+[data-hubble-source-editor] .pm-code-block-controls {
+	display: none;
+}
+
+[data-hubble-source-editor] .ProseMirror pre {
+	flex: 1;
+	background: transparent;
+	border-radius: 0;
+	padding: 0;
 }
 
 [data-hubble-editor]
@@ -616,4 +675,54 @@
 
 .dark [data-hubble-editor] .ProseMirror span[data-link="true"] {
 	color: color-mix(in oklab, var(--brand) 55%, var(--foreground));
+}
+
+[data-hubble-editor] .ProseMirror table {
+	border-collapse: separate;
+	border-spacing: 0;
+	border-radius: var(--radius);
+	table-layout: fixed;
+	inline-size: 100%;
+	margin-block: var(--editor-gap);
+	overflow: hidden;
+}
+
+[data-hubble-editor] .ProseMirror td,
+[data-hubble-editor] .ProseMirror th {
+	min-inline-size: 1em;
+	border: 1px solid var(--border);
+	padding: 0.5rem 0.75rem;
+	vertical-align: top;
+	box-sizing: border-box;
+	position: relative;
+}
+
+[data-hubble-editor] .ProseMirror tr:not(:first-child) :is(td, th) {
+	border-block-start: 0;
+}
+
+[data-hubble-editor] .ProseMirror :is(td, th):not(:first-child) {
+	border-inline-start: 0;
+}
+
+[data-hubble-editor] .ProseMirror tr:first-child :is(td, th):first-child {
+	border-start-start-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:first-child :is(td, th):last-child {
+	border-start-end-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:last-child :is(td, th):first-child {
+	border-end-start-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror tr:last-child :is(td, th):last-child {
+	border-end-end-radius: var(--radius);
+}
+
+[data-hubble-editor] .ProseMirror th {
+	background-color: var(--muted);
+	font-weight: 600;
+	text-align: start;
 }

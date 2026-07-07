@@ -23,27 +23,38 @@ import {
 	pathAfterMove,
 	rewriteMovedLinks,
 } from "../lib/markdownLinkRewrite";
+import { DEFAULT_CHAT_COMMAND } from "./settings";
 import {
 	applyFileAction,
 	appStore,
+	chatCommandStore,
 	cleanFileState,
 	emptyDoc,
 	type FileEntry,
+	type FolderEntry,
 	getBaseline,
 	isInWorkspace,
 	LOADING_DELAY_MS,
 	MAX_RECENT,
+	pendingTerminalCommandStore,
 	type SortMode,
 	sidebarOpenStore,
 	switcherOpenStore,
+	uiStore,
+	type ViewMode,
 	viewerStore,
 	withOpenedDoc,
 	workspaceStore,
 } from "./state";
 
 const REFRESH_FILES_DEBOUNCE_MS = 250;
+const SELF_SAVE_TTL_MS = 5000;
 const missingPathErrorPattern = /\bENOENT\b|\bENOTDIR\b/;
 let refreshFilesTimer: ReturnType<typeof setTimeout> | null = null;
+// The active-file watcher also sees Hubble's own writes. If save A reaches disk
+// after the editor already has draft B, that watcher event is not an external
+// conflict; it is just the disk baseline catching up to a save we started.
+const selfSaves = new Map<string, Map<string, number>>();
 
 type SidebarMoveItem =
 	| { kind: "file"; path: string }
@@ -51,17 +62,16 @@ type SidebarMoveItem =
 
 export async function refreshFiles(path = workspaceStore.get().workspacePath) {
 	if (!path) return;
-	let files: FileEntry[] = [];
-
-	try {
-		files = await desktopApi.listDirectory(path);
-	} catch {
-		files = [];
-	}
+	const listing = await desktopApi
+		.listDirectory(path)
+		.catch((): { files: FileEntry[]; folders: FolderEntry[] } => ({
+			files: [],
+			folders: [],
+		}));
 
 	workspaceStore.set((state) => {
 		if (state.workspacePath !== path) return state;
-		return { ...state, files };
+		return { ...state, files: listing.files, folders: listing.folders };
 	});
 }
 
@@ -97,6 +107,41 @@ function handleFileError(err: unknown) {
 	const message = errorMessage(err);
 	refreshFilesAfterMissingPath(message);
 	return message;
+}
+
+function pruneSelfSaves(path: string, now = Date.now()) {
+	const contents = selfSaves.get(path);
+	if (!contents) return;
+	for (const [content, expiresAt] of contents) {
+		if (expiresAt <= now) contents.delete(content);
+	}
+	if (contents.size === 0) selfSaves.delete(path);
+}
+
+function rememberSelfSave(path: string, content: string) {
+	pruneSelfSaves(path);
+	const contents = selfSaves.get(path) ?? new Map<string, number>();
+	contents.set(content, Date.now() + SELF_SAVE_TTL_MS);
+	selfSaves.set(path, contents);
+}
+
+function isSelfSave(path: string, content: string) {
+	pruneSelfSaves(path);
+	return selfSaves.get(path)?.has(content) ?? false;
+}
+
+function selfSaveState(editorContent: string, diskContent: string) {
+	if (editorContent === diskContent) {
+		return cleanFileState(diskContent);
+	}
+	// Keep newer editor text intact while acknowledging that an older self-save
+	// is now the latest content known to be on disk.
+	return {
+		diskContent,
+		externalChange: { kind: "none" as const },
+		status: "ready" as const,
+		error: null,
+	};
 }
 
 function pathStartsWithFolder(filePath: string, folderPath: string): boolean {
@@ -187,27 +232,33 @@ async function updateMovedLinks(movedFiles: MovedFile[], files: FileEntry[]) {
 	}
 }
 
-function folderPathsFromFiles(files: FileEntry[]) {
-	const folders = new Set<string>();
+function folderPathsFromEntries(
+	files: FileEntry[],
+	folderEntries: FolderEntry[] = [],
+) {
+	const folderPaths = new Set<string>();
+	for (const folder of folderEntries) {
+		folderPaths.add(folder.path.toLocaleLowerCase());
+	}
 	for (const file of files) {
 		let parent = dirname(file.path);
 		while (parent) {
-			folders.add(parent.toLocaleLowerCase());
+			folderPaths.add(parent.toLocaleLowerCase());
 			const nextParent = dirname(parent);
 			parent = nextParent === parent ? null : nextParent;
 		}
 	}
-	return folders;
+	return folderPaths;
 }
 
 function uniqueMovePath(parent: string, sourcePath: string, isFolder: boolean) {
 	const sourceName = basename(sourcePath);
 	const extension = isFolder ? "" : extname(sourceName);
 	const stem = extension ? sourceName.slice(0, -extension.length) : sourceName;
-	const files = workspaceStore.get().files;
+	const { files, folders } = workspaceStore.get();
 	const existing = new Set([
 		...files.map((file) => file.path.toLocaleLowerCase()),
-		...folderPathsFromFiles(files),
+		...folderPathsFromEntries(files, folders),
 	]);
 	for (let index = 0; ; index++) {
 		const name = index === 0 ? sourceName : `${stem} ${index}${extension}`;
@@ -263,11 +314,29 @@ export function touchFile(path: string) {
 	});
 }
 
-function uniqueMarkdownPath(parent: string): string {
+function uniqueFilePath(
+	parent: string,
+	stem: string,
+	extension: string,
+): string {
 	const files = workspaceStore.get().files;
 	const existing = new Set(files.map((file) => file.path.toLocaleLowerCase()));
 	for (let index = 1; ; index++) {
-		const name = index === 1 ? "new-file.md" : `new-file-${index}.md`;
+		const name =
+			index === 1 ? `${stem}${extension}` : `${stem}-${index}${extension}`;
+		const candidate = joinPath(parent, name);
+		if (!existing.has(candidate.toLocaleLowerCase())) return candidate;
+	}
+}
+
+function uniqueFolderPath(parent: string): string {
+	const { files, folders } = workspaceStore.get();
+	const existing = new Set([
+		...files.map((file) => file.path.toLocaleLowerCase()),
+		...folderPathsFromEntries(files, folders),
+	]);
+	for (let index = 1; ; index++) {
+		const name = index === 1 ? "new-folder" : `new-folder-${index}`;
 		const candidate = joinPath(parent, name);
 		if (!existing.has(candidate.toLocaleLowerCase())) return candidate;
 	}
@@ -297,6 +366,30 @@ export function setSidebarOpen(isOpen: boolean) {
 
 export function toggleSidebar() {
 	sidebarOpenStore.set((open) => !open);
+}
+
+export function setTerminalOpen(isOpen: boolean) {
+	uiStore.select("isTerminalOpen").set(isOpen);
+}
+
+export function toggleTerminal() {
+	uiStore.select("isTerminalOpen").set((open) => !open);
+}
+
+export function setChatCommand(command: string) {
+	chatCommandStore.set(command);
+}
+
+export function requestChatAboutNote() {
+	const command = chatCommandStore.get().trim() || DEFAULT_CHAT_COMMAND;
+	// Set the command before opening so the panel's open effect can see it
+	// and defer to the chat launch instead of starting a plain session.
+	pendingTerminalCommandStore.set(command);
+	uiStore.select("isTerminalOpen").set(true);
+}
+
+export function clearPendingTerminalCommand() {
+	uiStore.set((state) => ({ ...state, pendingTerminalCommand: null }));
 }
 
 export function clearViewer() {
@@ -376,6 +469,13 @@ export function updateEditorContent(path: string, content: string) {
 	});
 }
 
+export function setViewerMode(viewMode: ViewMode) {
+	viewerStore.set((state) => {
+		if (state.viewMode === viewMode) return state;
+		return { ...state, viewMode };
+	});
+}
+
 export async function savePathContent(
 	path: string,
 	content: string,
@@ -393,17 +493,27 @@ export async function savePathContent(
 			const currentDiskContent = await desktopApi.readFileText(path);
 			const nextCurrent = viewerStore.get();
 			if (nextCurrent.currentPath !== path) return;
-			const action = classifyFileChange({
-				editorContent: nextCurrent.content,
-				baseline: getBaseline(nextCurrent),
-				diskContent: currentDiskContent,
-			});
-			if (action !== "none") {
+			if (isSelfSave(path, currentDiskContent)) {
 				viewerStore.set((state) => {
 					if (state.currentPath !== path) return state;
-					return applyFileAction(state, currentDiskContent, action);
+					return {
+						...state,
+						...selfSaveState(state.content, currentDiskContent),
+					};
 				});
-				return;
+			} else {
+				const action = classifyFileChange({
+					editorContent: nextCurrent.content,
+					baseline: getBaseline(nextCurrent),
+					diskContent: currentDiskContent,
+				});
+				if (action !== "none") {
+					viewerStore.set((state) => {
+						if (state.currentPath !== path) return state;
+						return applyFileAction(state, currentDiskContent, action);
+					});
+					return;
+				}
 			}
 		} catch {
 			// Fall through to the write path if the file cannot be read during preflight.
@@ -411,7 +521,9 @@ export async function savePathContent(
 	}
 
 	try {
+		rememberSelfSave(path, content);
 		await desktopApi.writeFileText(path, content);
+		rememberSelfSave(path, content);
 		touchFile(path);
 		viewerStore.set((state) => {
 			if (state.currentPath !== path) return state;
@@ -529,6 +641,117 @@ export async function renameCurrentMarkdownFile(nextName: string) {
 	await renameMarkdownFile(current.currentPath, nextName);
 }
 
+async function deleteEmptySourceAncestors(
+	sourcePath: string,
+	targetPath: string,
+	workspacePath: string | null,
+) {
+	if (!workspacePath) return;
+	let parent = dirname(sourcePath);
+	while (parent && !pathEquals(parent, workspacePath)) {
+		if (pathEquals(parent, targetPath) || pathInFolder(targetPath, parent)) {
+			return;
+		}
+		try {
+			await desktopApi.deleteFile(parent);
+		} catch (err) {
+			const message = errorMessage(err);
+			if (
+				!missingPathErrorPattern.test(message) &&
+				!/\bENOTEMPTY\b/.test(message)
+			) {
+				throw err;
+			}
+			return;
+		}
+		const nextParent = dirname(parent);
+		parent = nextParent === parent ? null : nextParent;
+	}
+}
+
+export async function renameFolder(
+	path: string,
+	nextName: string,
+	targetPath?: string,
+) {
+	const { files: filesBeforeRename, workspacePath } = workspaceStore.get();
+	const trimmedName = nextName.trim();
+	if (trimmedName.length === 0) return;
+
+	const parent = dirname(path);
+	if (!parent) return;
+
+	const nextPath = normalizePath(targetPath ?? joinPath(parent, trimmedName));
+	if (
+		targetPath &&
+		workspacePath &&
+		!pathInFolder(nextPath, normalizePath(workspacePath))
+	) {
+		return;
+	}
+	if (!isSafeRelativeRenamePath(trimmedName, nextPath, workspacePath)) return;
+	if (nextPath === path) return;
+
+	const current = viewerStore.get();
+	const currentPath = current.currentPath;
+	const currentAffected = currentPath && pathInFolder(currentPath, path);
+	const movedFiles = movedMarkdownFiles(
+		filesBeforeRename,
+		path,
+		nextPath,
+		true,
+	);
+
+	try {
+		if (currentAffected && currentPath) {
+			await savePathContent(currentPath, current.content, { force: true });
+		}
+		await desktopApi.renameFile(path, nextPath);
+		await deleteEmptySourceAncestors(path, nextPath, workspacePath);
+		appStore.set((state) => ({
+			...state,
+			workspace: {
+				...state.workspace,
+				files: state.workspace.files.map((file) => ({
+					...file,
+					path: replacePathPrefix(file.path, path, nextPath),
+				})),
+				folders: state.workspace.folders.map((folder) => ({
+					...folder,
+					path: replacePathPrefix(folder.path, path, nextPath),
+				})),
+				pinnedNotes: state.workspace.pinnedNotes.map((pinnedPath) =>
+					replacePathPrefix(pinnedPath, path, nextPath),
+				),
+				lastOpenedPaths: Object.fromEntries(
+					Object.entries(state.workspace.lastOpenedPaths).map(
+						([workspace, openedPath]) => [
+							workspace,
+							replacePathPrefix(openedPath, path, nextPath),
+						],
+					),
+				),
+			},
+			document: {
+				...state.document,
+				currentPath: state.document.currentPath
+					? replacePathPrefix(state.document.currentPath, path, nextPath)
+					: null,
+				lastOpenedPath: state.document.lastOpenedPath
+					? replacePathPrefix(state.document.lastOpenedPath, path, nextPath)
+					: null,
+			},
+		}));
+		await updateMovedLinks(movedFiles, filesBeforeRename);
+		await syncPinnedNotes();
+		await refreshFiles();
+	} catch (err) {
+		const message = handleFileError(err);
+		toast.error("Failed to rename folder", { description: message });
+		await refreshFiles();
+	}
+}
+
 function isSafeRelativeRenamePath(
 	name: string,
 	nextPath: string,
@@ -640,8 +863,21 @@ export async function moveSidebarItem(
 	}
 }
 
-export async function createMarkdownFileInFolder(parentPath: string) {
-	const path = uniqueMarkdownPath(parentPath);
+export async function moveSidebarItems(
+	items: SidebarMoveItem[],
+	targetFolderPath: string,
+) {
+	for (const item of items) {
+		await moveSidebarItem(item, targetFolderPath);
+	}
+}
+
+async function createEmptyFileInFolder(
+	parentPath: string,
+	stem: string,
+	extension: string,
+) {
+	const path = uniqueFilePath(parentPath, stem, extension);
 	try {
 		await desktopApi.writeFileText(path, "");
 		const modified_at = Math.floor(Date.now() / 1000);
@@ -655,6 +891,32 @@ export async function createMarkdownFileInFolder(parentPath: string) {
 	} catch (err) {
 		const message = handleFileError(err);
 		toast.error("Failed to create file", { description: message });
+		return null;
+	}
+}
+
+export function createMarkdownFileInFolder(parentPath: string) {
+	return createEmptyFileInFolder(parentPath, "new-file", ".md");
+}
+
+export function createHtmlFileInFolder(parentPath: string) {
+	return createEmptyFileInFolder(parentPath, "new-app", ".html");
+}
+
+export async function createFolderInFolder(parentPath: string) {
+	const path = uniqueFolderPath(parentPath);
+	try {
+		await desktopApi.createFolder(path);
+		const modified_at = Math.floor(Date.now() / 1000);
+		workspaceStore.set((state) => ({
+			...state,
+			folders: [...state.folders, { path, modified_at }],
+		}));
+		await refreshFiles();
+		return path;
+	} catch (err) {
+		const message = handleFileError(err);
+		toast.error("Failed to create folder", { description: message });
 		return null;
 	}
 }
@@ -754,6 +1016,12 @@ export function handleExternalFileChange(
 ) {
 	viewerStore.set((state) => {
 		if (state.currentPath !== path) return state;
+		if (isSelfSave(path, nextDiskContent)) {
+			return {
+				...state,
+				...selfSaveState(state.content, nextDiskContent),
+			};
+		}
 		const action = classifyFileChange({
 			editorContent: state.content,
 			baseline: getBaseline(state),

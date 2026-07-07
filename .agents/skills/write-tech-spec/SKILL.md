@@ -9,112 +9,54 @@ Write a `TECH.md` spec for a significant Hubble feature.
 
 ## Overview
 
-The tech spec translates product behavior into an implementation plan that fits this monorepo. It should identify affected apps, packages, module boundaries, data flow, validation, and sequencing so an agent can implement and reviewers can evaluate the plan.
+The tech spec is the implementation approach as scannable bullets grounded in real code, plus the test plan. A reviewer should be able to scan it in under a minute and spot the risky decision. It is not a build log or a tutorial: every bullet either names a change to make or a decision a reviewer might push back on.
 
-Prefer a sibling `PRODUCT.md` first. Reference its numbered Behavior invariants instead of restating user-facing behavior.
+Prefer a sibling `PRODUCT.md` first (`write-product-spec`). Reference its flows instead of restating user-facing behavior.
 
-Write specs to `specs/<id>/TECH.md`, where `<id>` matches the sibling product spec when present:
-
-- a GitHub issue id, prefixed with `gh-` (for example `specs/gh-456/TECH.md`)
-- a short kebab-case feature name (for example `specs/local-workspace-onboarding/TECH.md`)
-
-`specs/` should contain only id-named directories as direct children.
+Write specs to `specs/<id>/TECH.md`, matching the sibling product spec id. `specs/` should contain only id-named directories as direct children.
 
 Only create a GitHub issue when the user explicitly asks. This repo uses GitHub Issues on `bholmesdev/hubble.md` via `gh`; see `docs/agents/issue-tracker.md`.
 
 ## When To Use
 
-Use for changes that span multiple modules, affect shared packages, change sync/workspace behavior, introduce new data flow, or need reviewable architecture. Skip or keep very short for single-file UI fixes.
+Use for changes that span multiple modules, affect shared packages, change sync/workspace behavior, or introduce new data flow. Skip for single-file UI fixes.
 
 ## Research Before Writing
 
-Read the product spec if it exists, then inspect the relevant code. Do not guess about architecture when the code can be inspected.
+Read the product spec, then inspect the actual code. Do not guess about architecture when the code can be read:
 
-Always check:
-
-- `CONTEXT.md` for domain terms.
-- Relevant `docs/adr/*` for architectural constraints.
-- Existing UI primitives and nearby feature implementations before proposing new components or patterns.
-- Root `package.json` and `pnpm-workspace.yaml` when package/app commands or ownership matter.
-- Affected app/package source under:
-  - `apps/desktop`
-  - `apps/www`
-  - `packages/editor`
-  - `packages/ui`
-  - `packages/sync`
-  - `packages/sync-backend`
-  - `packages/convex-client`
-  - `packages/cli`
-
-Capture the current commit SHA with `git rev-parse HEAD`. When referencing code, prefer commit-pinned GitHub links to exact files/lines if the remote is available. If not, use local paths and line numbers.
+- `CONTEXT.md` for domain terms and relevant `docs/adr/*` for constraints.
+- The affected source under `apps/desktop`, `apps/www`, `packages/editor`, `packages/ui`, `packages/sync`, `packages/sync-backend`, `packages/convex-client`, `packages/cli`.
+- Existing helpers and primitives that already do part of the job. Naming an existing unused helper beats proposing a new one.
 
 ## Structure
 
-Required sections:
+1. **Approach** — the core of the spec. Bullets stating what changes where, each grounded in real code: `New shared helper classifyHref(href) used in three places: ...`, `No parser/serializer changes; links round-trip as-is`, `Reuse normalizePath from apps/desktop/src/lib/filePath.ts (exists but unused here)`. Group by concern (renderer, main process, shared package) when the change spans layers. Explicitly call out what does NOT change when a reviewer would expect it to. State a tradeoff in one line only where more than one approach is plausible.
+2. **E2E test plan** — required. Derive it from the `PRODUCT.md` flows:
+   - Desktop: exact flows to drive in the running app per `.agents/skills/test-desktop-app/SKILL.md` — the Workspace state to open, the actions to perform, and the visible result to confirm. Name screens and controls, not "manually test the UI".
+   - Web: the same flows via the dev server with `?test=1` when the behavior is cross-surface (requires `VITE_TEST_CONVEX_URL` and `VITE_TEST_WORKSPACE_ID` in `apps/www/.env.local`).
+   - Unit/integration tests worth writing, named by module.
+   - Commands: `pnpm check` for iteration, `pnpm build:desktop` for final confidence.
 
-1. **Context** — what is being built, current architecture in the affected area, relevant domain terms, and key code references. Reference `PRODUCT.md` for behavior.
-2. **Affected apps and packages** — list each touched app/package and why:
-   - `apps/desktop`
-   - `apps/www`
-   - `packages/editor`
-   - `packages/ui`
-   - `packages/sync`
-   - `packages/sync-backend`
-   - `packages/convex-client`
-   - `packages/cli`
-   Include only relevant entries.
-3. **Module architecture** — describe the proposed breakdown by module/file responsibility. Include new modules, changed modules, ownership boundaries, public APIs, and how data moves between them.
-4. **Detailed plan** — concrete implementation steps, types/APIs/state introduced, migrations or config changes, UI primitives reused, and tradeoffs. Explain why the design fits Hubble's existing patterns.
-5. **Testing and validation** — map important `PRODUCT.md` Behavior invariants to checks:
-   - unit tests
-   - integration tests
-   - package/app-level tests
-   - `pnpm check` for quick iteration
-   - `pnpm build:desktop` before final confidence when relevant
-   - manual desktop/web validation
-   - Computer Use flows for UI verification, assuming the agent has access
-6. **Parallelization** — decide whether sub-agents would help. If useful, define roles, owned files/packages, branches/worktrees, sequencing, and merge strategy. If not useful, say why briefly.
+Optional, only when they earn their lines:
 
-Optional sections:
+- **Risks** — real regressions, data loss, or sync hazards, one bullet each with the mitigation.
+- **Diagram** — Mermaid only when it explains data flow faster than prose.
+- **Follow-ups** — deferred slices.
 
-- **End-to-end flow** — include when tracing across UI, editor, sync, backend, or CLI clarifies the design.
-- **Diagram** — Mermaid only when it explains data flow or state transitions faster than prose.
-- **Risks and mitigations** — real regressions, migration concerns, data loss risks, sync hazards, or rollout hazards.
-- **Follow-ups** — deferred cleanup or later slices.
-
-## Testing Guidance
-
-Use repo-native commands:
-
-- `pnpm check` for quick iteration.
-- `pnpm build:desktop` for the full check: package builds, Biome, TypeScript, Vite, and Cargo check.
-
-For web app validation, use the dev server with `?test=1` when appropriate. This bypasses connect/workspace-picker screens and requires `VITE_TEST_CONVEX_URL` and `VITE_TEST_WORKSPACE_ID` in `apps/www/.env.local`.
-
-For Computer Use validation, describe specific observable flows, for example:
-
-- open the desktop app
-- create/open the relevant Workspace Folder, Plain Folder, or Loose File
-- perform the feature flow
-- verify visible state, focus, keyboard behavior, error state, and persistence
-- repeat on web when the behavior is cross-surface
-
-Do not hand-wave "manual test the UI." Name exact screens, actions, and expected visible results.
+Do not include boilerplate sections: no affected-package inventories, module-architecture essays, step-by-step build ordering, or parallelization plans. If a package matters, it shows up naturally in the Approach bullets' file paths.
 
 ## Writing Guidance
 
-- Ground the plan in actual code.
+- Ground every bullet in code you read: name files, functions, and existing patterns. Prefer local paths with line numbers; use commit-pinned GitHub links only when the spec will be read outside a checkout.
 - Use project vocabulary from `CONTEXT.md`.
-- Separate app/package impact from module architecture.
-- Prefer concrete module boundaries over generic layers.
-- Reuse existing design-system primitives and nearby UI patterns before proposing new primitives.
-- Explain tradeoffs only where more than one approach is plausible.
-- Keep product behavior in `PRODUCT.md`; keep implementation proof in `TECH.md`.
+- Reuse existing design-system primitives and nearby patterns before proposing new ones.
 - Use logical CSS spacing props in frontend plans: `margin/padding` inline/block/start/end, not physical left/right/top/bottom.
+- Target 30-80 lines total. If a bullet doesn't change what the implementer types or what the reviewer checks, cut it.
 
 ## Keep Current
 
-Update `TECH.md` in the same PR when implementation boundaries, sequencing, risks, or validation strategy changes. The checked-in spec should describe what ships.
+Update `TECH.md` in the same PR when the approach, risks, or test plan changes. The checked-in spec should describe what ships.
 
 ## Related Skills
 

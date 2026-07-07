@@ -1,0 +1,13 @@
+# Normalize all text files to LF in the repository and on checkout, on every
+# platform. Without this, a Windows clone with core.autocrlf=true checks out
+# CRLF and `pnpm check` (Biome) fails its formatting check on ~200 files.
+* text=auto eol=lf
+
+# Binary assets: never normalize.
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.icns binary
+*.mp4  binary
+*.ttf  binary
+*.otf  binary

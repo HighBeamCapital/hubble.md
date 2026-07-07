@@ -15,7 +15,10 @@ export type FileEntry = {
 	modified_at: number;
 };
 
+export type FolderEntry = FileEntry;
+
 type ViewerStatus = "idle" | "loading" | "ready" | "error";
+export type ViewMode = "rich" | "source";
 type ExternalChange =
 	| { kind: "none" }
 	| { kind: "conflict"; diskContent: string };
@@ -28,6 +31,7 @@ type DocumentState = {
 	externalChange: ExternalChange;
 	status: ViewerStatus;
 	error: string | null;
+	viewMode: ViewMode;
 };
 
 const NO_CONFLICT: ExternalChange = { kind: "none" };
@@ -45,6 +49,7 @@ export const emptyDoc = (
 	externalChange: NO_CONFLICT,
 	status: "idle",
 	error: null,
+	viewMode: "rich",
 });
 
 export function cleanFileState(content: string) {
@@ -127,6 +132,7 @@ export function withOpenedDoc(
 			currentPath: path,
 			lastOpenedPath: path,
 			...cleanFileState(content),
+			viewMode: "rich",
 		},
 	};
 }
@@ -146,3 +152,10 @@ export const recentWorkspacesStore = workspaceStore.select("recentWorkspaces");
 export const currentPathStore = viewerStore.select("currentPath");
 export const sidebarOpenStore = uiStore.select("sidebarOpen");
 export const switcherOpenStore = uiStore.select("isSwitcherOpen");
+export const terminalOpenStore = uiStore.select("isTerminalOpen");
+export const pendingTerminalCommandStore = uiStore.select(
+	"pendingTerminalCommand",
+);
+export const chatCommandStore = appStore
+	.select("settings")
+	.select("chatCommand");

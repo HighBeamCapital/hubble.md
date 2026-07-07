@@ -38,7 +38,9 @@ From the repo root:
 
 ```sh
 pnpm install
-pnpm bundle:desktop
+pnpm bundle:desktop:mac
+# or for linux:
+pnpm bundle:desktop:linux
 ```
 
 This creates a production desktop bundle under `apps/desktop/release/`. See [`apps/desktop/README.md`](./apps/desktop/README.md) for packaging and distribution detail.

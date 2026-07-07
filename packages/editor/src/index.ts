@@ -1,5 +1,13 @@
 export { FakeSelectionExtension } from "./FakeSelectionExtension";
 export {
+	FindExtension,
+	type FindMatch,
+	type FindState,
+	findMatches,
+	getFindState,
+	selectFindMatch,
+} from "./FindExtension";
+export {
 	combineMarkdownFrontMatter,
 	detectFilePropertyType,
 	type FileProperty,
@@ -38,7 +46,10 @@ export {
 	withMarkdownExtension,
 } from "./markdownPath";
 export { markdownToTiptapDoc } from "./markdownToProsemirror";
-export { tiptapDocToMarkdown } from "./prosemirrorToMarkdown";
+export {
+	selectionToMarkdown,
+	tiptapDocToMarkdown,
+} from "./prosemirrorToMarkdown";
 export { StoredMarksDecorationExtension } from "./StoredMarksDecorationExtension";
 export { StrikethroughShortcutExtension } from "./StrikethroughShortcutExtension";
 export {

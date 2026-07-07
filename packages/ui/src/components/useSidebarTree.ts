@@ -9,6 +9,11 @@ export type SidebarFile = {
 	pinned?: boolean;
 };
 
+export type SidebarFolder = {
+	path: string;
+	modifiedAt?: number;
+};
+
 type FolderNode = {
 	id: string;
 	name: string;
@@ -53,16 +58,20 @@ const expandedFoldersSchema = z.array(z.string());
 
 export function useSidebarTree({
 	files,
+	folders = [],
 	getDisplayPath,
 	highlightPath,
 	sortMode,
 	storageScope,
+	uncompactFolderId = null,
 }: {
 	files: SidebarFile[];
+	folders?: SidebarFolder[];
 	getDisplayPath: (path: string) => string;
 	highlightPath: string | null;
 	sortMode: SidebarSortMode;
 	storageScope?: string | null;
+	uncompactFolderId?: string | null;
 }) {
 	const storageKey = storageScope
 		? `hubble-sidebar-expanded-folders:${storageScope}`
@@ -91,8 +100,8 @@ export function useSidebarTree({
 	}, [storageKey, expandedState]);
 
 	const tree = useMemo(
-		() => buildFileTree(files, getDisplayPath),
-		[files, getDisplayPath],
+		() => buildFileTree(files, folders, getDisplayPath),
+		[files, folders, getDisplayPath],
 	);
 	const activeAncestorIds = useMemo(
 		() =>
@@ -109,8 +118,9 @@ export function useSidebarTree({
 				tree,
 				sortMode,
 				expandedFolders,
+				uncompactFolderId,
 			}),
-		[expandedFolders, files, getDisplayPath, sortMode, tree],
+		[expandedFolders, files, getDisplayPath, sortMode, tree, uncompactFolderId],
 	);
 
 	useEffect(() => {
@@ -175,11 +185,25 @@ function makeFolder(id: string, name: string): FolderNode {
 	};
 }
 
-function buildFileTree(
+export function buildFileTree(
 	files: SidebarFile[],
+	folders: SidebarFolder[],
 	getDisplayPath: (path: string) => string,
 ): FolderNode {
 	const root = makeFolder("", "");
+
+	for (const folderEntry of folders) {
+		const displayPath = normalizeDisplayPath(getDisplayPath(folderEntry.path));
+		if (!displayPath) continue;
+		const segments = displayPath.split("/").filter(Boolean);
+		let parent = root;
+		const modifiedAt = folderEntry.modifiedAt ?? 0;
+		for (const segment of segments) {
+			const folder = ensureFolder(parent, segment);
+			folder.modifiedAt = Math.max(folder.modifiedAt, modifiedAt);
+			parent = folder;
+		}
+	}
 
 	for (const file of files) {
 		const displayPath = normalizeDisplayPath(getDisplayPath(file.path));
@@ -217,18 +241,20 @@ function ensureFolder(parent: FolderNode, name: string): FolderNode {
 	return folder;
 }
 
-function flattenRows({
+export function flattenRows({
 	files,
 	getDisplayPath,
 	tree,
 	sortMode,
 	expandedFolders,
+	uncompactFolderId = null,
 }: {
 	files: SidebarFile[];
 	getDisplayPath: (path: string) => string;
 	tree: FolderNode;
 	sortMode: SidebarSortMode;
 	expandedFolders: Set<string>;
+	uncompactFolderId?: string | null;
 }): SidebarRow[] {
 	const rows: SidebarRow[] = [];
 	const pinnedFiles = files
@@ -245,7 +271,14 @@ function flattenRows({
 			});
 		}
 	}
-	appendFolderChildren(tree, 0, sortMode, expandedFolders, rows);
+	appendFolderChildren(
+		tree,
+		0,
+		sortMode,
+		expandedFolders,
+		rows,
+		uncompactFolderId,
+	);
 	return rows;
 }
 
@@ -255,6 +288,7 @@ function appendFolderChildren(
 	sortMode: SidebarSortMode,
 	expandedFolders: Set<string>,
 	rows: SidebarRow[],
+	uncompactFolderId: string | null,
 ) {
 	const folders = [...folder.folders.values()].sort((a, b) =>
 		compareNodes(a, b, sortMode),
@@ -262,7 +296,7 @@ function appendFolderChildren(
 	const files = [...folder.files].sort((a, b) => compareFiles(a, b, sortMode));
 
 	for (const child of folders) {
-		const compacted = compactFolder(child);
+		const compacted = compactFolder(child, uncompactFolderId);
 		const expanded = expandedFolders.has(compacted.folder.id);
 		rows.push({
 			kind: "folder",
@@ -279,6 +313,7 @@ function appendFolderChildren(
 				sortMode,
 				expandedFolders,
 				rows,
+				uncompactFolderId,
 			);
 		}
 	}
@@ -295,7 +330,10 @@ function appendFolderChildren(
 }
 
 /** Collapses chains like `deeply/nested/folder` into one folder row. */
-function compactFolder(folder: FolderNode): {
+function compactFolder(
+	folder: FolderNode,
+	uncompactFolderId: string | null,
+): {
 	folder: FolderNode;
 	label: string;
 	segments: SidebarFolderSegment[];
@@ -308,6 +346,8 @@ function compactFolder(folder: FolderNode): {
 			| FolderNode
 			| undefined;
 		if (!onlyChild) break;
+		// New nested folders stay visible as their own row while the name input is open.
+		if (onlyChild.id === uncompactFolderId) break;
 		names.push(onlyChild.name);
 		segments.push({ id: onlyChild.id, name: onlyChild.name });
 		cursor = onlyChild;

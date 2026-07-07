@@ -1,19 +1,19 @@
 ---
 interface Props {
-  size?: number;
-  body?: string;   // petal fill
-  ink?: string;    // outline + pupil
-  gleam?: string;  // eye highlight
-  stroke?: number;
-  class?: string;
+	size?: number;
+	body?: string; // petal fill
+	ink?: string; // outline + pupil
+	gleam?: string; // eye highlight
+	stroke?: number;
+	class?: string;
 }
 const {
-  size = 56,
-  body = "#ffffff",
-  ink = "#121212",
-  gleam = "#ffffff",
-  stroke = 1.5,
-  class: klass = "",
+	size = 56,
+	body = "#ffffff",
+	ink = "#121212",
+	gleam = "#ffffff",
+	stroke = 1.5,
+	class: klass = "",
 } = Astro.props;
 ---
 <svg

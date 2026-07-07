@@ -1,36 +1,133 @@
 ---
 import { Icon } from "astro-icon/components";
-import Base from "../layouts/Base.astro";
 import Logo from "../components/Logo.astro";
+import Base from "../layouts/Base.astro";
+
 const headline = "The best notepad for you and your agents";
 const sub = "Free, open source, backed by Markdown and HTML.";
 
 // Workspace demo content — drives both the markup below and the client script.
 const notes = [
-  { title: "Desert stars", tag: "Outdoors", place: "Joshua Tree", color: "var(--hero-leaf)", h: 116, x: 122, y: 150 },
-  { title: "Tokyo ramen", tag: "Travel", place: "Tokyo", color: "#c46a48", h: 110, x: 398, y: 98 },
-  { title: "Dune", tag: "Books", place: "Lisbon", color: "#5d6bb0", h: 118, x: 252, y: 112 },
-  { title: "Sourdough", tag: "Cooking", place: "Home", color: "#d99a2b", h: 112, x: 166, y: 120 },
-  { title: "Tide pools", tag: "Outdoors", place: "Big Sur", color: "#2e8d7a", h: 115, x: 82, y: 128 },
-  { title: "Kyoto garden", tag: "Travel", place: "Kyoto", color: "#b06a7a", h: 109, x: 368, y: 140, fresh: true },
+	{
+		title: "Desert stars",
+		tag: "Outdoors",
+		place: "Joshua Tree",
+		color: "var(--hero-leaf)",
+		h: 116,
+		x: 122,
+		y: 150,
+	},
+	{
+		title: "Tokyo ramen",
+		tag: "Travel",
+		place: "Tokyo",
+		color: "#c46a48",
+		h: 110,
+		x: 398,
+		y: 98,
+	},
+	{
+		title: "Dune",
+		tag: "Books",
+		place: "Lisbon",
+		color: "#5d6bb0",
+		h: 118,
+		x: 252,
+		y: 112,
+	},
+	{
+		title: "Sourdough",
+		tag: "Cooking",
+		place: "Home",
+		color: "#d99a2b",
+		h: 112,
+		x: 166,
+		y: 120,
+	},
+	{
+		title: "Tide pools",
+		tag: "Outdoors",
+		place: "Big Sur",
+		color: "#2e8d7a",
+		h: 115,
+		x: 82,
+		y: 128,
+	},
+	{
+		title: "Kyoto garden",
+		tag: "Travel",
+		place: "Kyoto",
+		color: "#b06a7a",
+		h: 109,
+		x: 368,
+		y: 140,
+		fresh: true,
+	},
 ];
-const tagClass: Record<string, string> = { Outdoors: "t-out", Travel: "t-travel", Books: "t-books", Cooking: "t-cook" };
+const tagClass: Record<string, string> = {
+	Outdoors: "t-out",
+	Travel: "t-travel",
+	Books: "t-books",
+	Cooking: "t-cook",
+};
 // Bookshelf demo: a filled two-shelf library. The six notes become titled spines; deterministic
 // filler spines (sin-based so the build is stable) pad the shelves so it reads as a real bookcase
 // rather than six lonely books. The count intentionally doesn't track the sidebar file list.
-const spinePalette = ["#3f7d63", "#c9a23a", "#5d6bb0", "#bf6b50", "#2e8d7a", "#b06a7a", "#6f8a3a", "#cf9a3a", "#7a5c9e", "#4f7da0", "#a8516a", "#357a5e", "#c46a48", "#8a6f3a"];
+const spinePalette = [
+	"#3f7d63",
+	"#c9a23a",
+	"#5d6bb0",
+	"#bf6b50",
+	"#2e8d7a",
+	"#b06a7a",
+	"#6f8a3a",
+	"#cf9a3a",
+	"#7a5c9e",
+	"#4f7da0",
+	"#a8516a",
+	"#357a5e",
+	"#c46a48",
+	"#8a6f3a",
+];
 // Filler spine titles in the same note-ish voice as the six real notes; every spine is labelled.
-const fillerTitles = ["Cold brew", "Big Sur", "Orion", "Tide charts", "Lisbon trams", "Trail notes", "Night sky", "Field guide", "Sea glass", "Camp recipes", "Star maps", "Old letters", "Map sketches", "Garden log", "Tea blends", "Coastlines", "Pour over", "Sea fog"];
+const fillerTitles = [
+	"Cold brew",
+	"Big Sur",
+	"Orion",
+	"Tide charts",
+	"Lisbon trams",
+	"Trail notes",
+	"Night sky",
+	"Field guide",
+	"Sea glass",
+	"Camp recipes",
+	"Star maps",
+	"Old letters",
+	"Map sketches",
+	"Garden log",
+	"Tea blends",
+	"Coastlines",
+	"Pour over",
+	"Sea fog",
+];
 const titleSlots = [2, 5, 8, 13, 16, 20]; // where the six real notes sit among the spines
 let fillerIdx = 0;
 const library = Array.from({ length: 24 }, (_, i) => {
-  const ti = titleSlots.indexOf(i);
-  const note = ti >= 0 ? notes[ti] : null;
-  const title = note ? note.title : fillerTitles[fillerIdx++];
-  const minH = Math.round(title.length * 6.7 + 30); // tall enough for the vertical spine label
-  const h = Math.max(minH, Math.round(108 + Math.abs(Math.sin(i * 1.3 + 1)) * 40));
-  const w = note ? 30 : 23 + Math.round(Math.abs(Math.sin(i * 0.77 + 1)) * 12);
-  return { color: note ? note.color : spinePalette[i % spinePalette.length], h, w, title };
+	const ti = titleSlots.indexOf(i);
+	const note = ti >= 0 ? notes[ti] : null;
+	const title = note ? note.title : fillerTitles[fillerIdx++];
+	const minH = Math.round(title.length * 6.7 + 30); // tall enough for the vertical spine label
+	const h = Math.max(
+		minH,
+		Math.round(108 + Math.abs(Math.sin(i * 1.3 + 1)) * 40),
+	);
+	const w = note ? 30 : 23 + Math.round(Math.abs(Math.sin(i * 0.77 + 1)) * 12);
+	return {
+		color: note ? note.color : spinePalette[i % spinePalette.length],
+		h,
+		w,
+		title,
+	};
 });
 const shelfRows = [library.slice(0, 12), library.slice(12)];
 // Route flows west→east across the map: Americas (Big Sur → Joshua Tree → Home), then Eurasia (Lisbon → Kyoto → Tokyo). Monotonic x keeps the spline from zig-zagging back and forth.
@@ -38,13 +135,18 @@ const order = [4, 0, 3, 2, 5, 1];
 // Smooth Catmull-Rom spline through the ordered pins so the route flows instead of zig-zagging.
 const pts = order.map((i) => [notes[i].x, notes[i].y]);
 const route = pts.reduce((d, p1, i) => {
-  if (i === 0) return `M${p1[0]} ${p1[1]}`;
-  const p0 = pts[i - 1], p2 = pts[i + 1] || p1, pm = pts[i - 2] || p0;
-  const c1x = p0[0] + (p1[0] - pm[0]) / 6, c1y = p0[1] + (p1[1] - pm[1]) / 6;
-  const c2x = p1[0] - (p2[0] - p0[0]) / 6, c2y = p1[1] - (p2[1] - p0[1]) / 6;
-  return `${d} C${c1x} ${c1y} ${c2x} ${c2y} ${p1[0]} ${p1[1]}`;
+	if (i === 0) return `M${p1[0]} ${p1[1]}`;
+	const p0 = pts[i - 1],
+		p2 = pts[i + 1] || p1,
+		pm = pts[i - 2] || p0;
+	const c1x = p0[0] + (p1[0] - pm[0]) / 6,
+		c1y = p0[1] + (p1[1] - pm[1]) / 6;
+	const c2x = p1[0] - (p2[0] - p0[0]) / 6,
+		c2y = p1[1] - (p2[1] - p0[1]) / 6;
+	return `${d} C${c1x} ${c1y} ${c2x} ${c2y} ${p1[0]} ${p1[1]}`;
 }, "");
-const ccLogo = '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/></svg>';
+const ccLogo =
+	'<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z" fill="#D97757" fill-rule="evenodd"/></svg>';
 ---
 <Base title="Hubble.md">
   <div class="page">
@@ -65,10 +167,6 @@ const ccLogo = '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://ww
             <p class="sub">{sub}</p>
             <div class="cta">
               <a class="btn gold" href="https://github.com/bholmesdev/hubble.md/releases/latest" data-download>Download</a>
-              <span class="download-soon" data-download-soon hidden>
-                <span><span data-download-os>Windows</span> coming soon</span>
-                <span class="tip" tabindex="0" data-download-tip aria-label="It should be easy to bring Hubble to your platform. I just don't have a machine to test on yet. I'll release to your platform as soon as I do. :)">?</span>
-              </span>
               <a class="btn ghost" href="https://github.com/bholmesdev/hubble.md" target="_blank" rel="noopener">★ Star on GitHub</a>
             </div>
           </div>
@@ -548,49 +646,46 @@ const ccLogo = '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://ww
   </script>
 
   <script>
-    // Smart download: macOS → direct .dmg from the latest GitHub release; other OSes → "coming soon".
-    // Falls back to the releases page if detection or the API fails, so the button always does something.
+    // Smart download targets based on your OS. Unknown directs to the release page.
     (async () => {
       const btn = document.querySelector<HTMLAnchorElement>("[data-download]");
-      const soon = document.querySelector<HTMLElement>("[data-download-soon]");
-      const osLabel = document.querySelector<HTMLElement>("[data-download-os]");
-      const tip = document.querySelector<HTMLElement>("[data-download-tip]");
-      if (!btn || !soon) return;
+      if (!btn) return;
 
       const ua = navigator.userAgent;
       const isMac = /Mac/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua);
+      const isWindows = /Windows/i.test(ua);
+      // Android UA also contains "Linux"; exclude it so phones don't get an AppImage.
+      const isLinux = /Linux|X11|CrOS/i.test(ua) && !/Android/i.test(ua);
 
-      if (!isMac) {
-        const detected = /Windows/i.test(ua) ? "Windows" : /Linux|X11|CrOS/i.test(ua) ? "Linux" : null;
-        const osName = detected ?? "your platform";
-        if (osLabel) osLabel.textContent = osName;
-        if (tip && detected) tip.setAttribute("aria-label", `It should be easy to bring Hubble to ${detected}. I just don't have a machine to test on yet. I'll release to your platform as soon as I do. :)`);
-        btn.hidden = true;
-        soon.hidden = false;
+      if (!isMac && !isWindows && !isLinux) {
+        btn.href = "https://github.com/bholmesdev/hubble.md/releases";
         return;
       }
 
-      // macOS: resolve the .dmg, with a 1h localStorage cache. Anything failing leaves the releases/latest href intact.
-      const REPO = "bholmesdev/hubble.md", KEY = "hubble:dmg";
+      // Resolve the platform's installer (.dmg / .exe / .AppImage), arch-matched, with a 1h localStorage cache.
+      // Anything failing leaves the releases/latest href intact.
+      const REPO = "bholmesdev/hubble.md";
+      const ext = isMac ? ".dmg" : isWindows ? ".exe" : ".AppImage";
+      const KEY = isMac ? "hubble:dmg" : isWindows ? "hubble:win-nsis" : "hubble:appimage";
       const apply = (url: string) => { btn.href = url; };
       try { const c = JSON.parse(localStorage.getItem(KEY) || "null"); if (c && Date.now() - c.t < 3.6e6 && c.url) apply(c.url); } catch {}
       try {
         const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: "application/vnd.github+json" } });
         if (!r.ok) return;
         const { assets } = await r.json();
-        const dmgs: { name: string; browser_download_url: string }[] = (assets || []).filter((a: any) => a.name?.endsWith(".dmg"));
-        if (!dmgs.length) return;
-        // Prefer the asset matching the Mac's architecture when the hint is available; otherwise assume Apple Silicon.
-        let preferArm = true;
+        const installers: { name: string; browser_download_url: string }[] = (assets || []).filter((a: any) => a.name?.endsWith(ext));
+        if (!installers.length) return;
+        // Prefer the asset matching the device architecture when the hint is available; otherwise assume arm on macOS and x64 elsewhere.
+        let preferArm = isMac;
         try {
           const uad = (navigator as any).userAgentData;
           if (uad?.getHighEntropyValues) {
             const { architecture } = await uad.getHighEntropyValues(["architecture"]);
-            if (architecture) preferArm = architecture === "arm";
+            if (architecture) preferArm = architecture === "arm" || architecture === "arm64";
           }
         } catch {}
-        const archRe = preferArm ? /arm64|aarch64/i : /x64|x86_64|intel/i;
-        const pick = dmgs.find((a) => archRe.test(a.name)) || dmgs[0];
+        const archRe = preferArm ? /arm64|aarch64/i : /x64|x86_64|amd64|intel/i;
+        const pick = installers.find((a) => archRe.test(a.name)) || installers[0];
         apply(pick.browser_download_url);
         try { localStorage.setItem(KEY, JSON.stringify({ url: pick.browser_download_url, t: Date.now() })); } catch {}
       } catch {}
@@ -628,12 +723,6 @@ const ccLogo = '<svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://ww
     .btn.gold:hover { transform:translateY(-3px); box-shadow:0 7px 0 rgba(23,61,46,.85); }
     .btn.gold:active { transform:translateY(2px); box-shadow:0 2px 0 rgba(23,61,46,.85); transition-duration:.09s; }
     .btn.ghost { border:1.5px solid var(--hero-line-strong); }
-    .download-soon { display:inline-flex; align-items:center; gap:.38rem; min-height:2.6rem; font-family:var(--font-rounded); font-weight:600; font-size:.95rem; color:rgba(23,61,46,.75); }
-    .tip { position:relative; display:inline-grid; place-items:center; width:1.15rem; height:1.15rem; border:1.5px solid var(--hero-line-strong); border-radius:var(--radius-pill); font-size:.76rem; line-height:1; cursor:help; color:var(--hero-ink); }
-    .tip::after { content:attr(aria-label); position:absolute; z-index:10; inset-block-end:calc(100% + .7rem); inset-inline-start:50%; width:min(260px,78vw); padding:.7rem .8rem; border-radius:var(--radius-control); background:var(--hero-ink); color:var(--hero-cream); box-shadow:var(--hero-popup-shadow); font-family:var(--font-body); font-weight:500; font-size:.82rem; line-height:1.35; text-align:start; transform:translate(-50%) translateY(4px); opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; }
-    .tip::before { content:""; position:absolute; inset-block-end:calc(100% + .38rem); inset-inline-start:50%; border:.35rem solid transparent; border-block-start-color:var(--hero-ink); transform:translate(-50%) rotate(180deg); opacity:0; transition:opacity .16s ease; }
-    .tip:hover::after, .tip:focus-visible::after, .tip:hover::before, .tip:focus-visible::before { opacity:1; transform:translate(-50%) translateY(0); }
-    .tip:hover::before, .tip:focus-visible::before { transform:translate(-50%) rotate(180deg); }
     @media (prefers-reduced-motion:reduce) { .btn.gold { transition:none; } .btn.gold:hover, .btn.gold:active { transform:none; } }
 
     .visual { position:relative; min-width:0; }

@@ -9,22 +9,13 @@ Write a `PRODUCT.md` spec for a significant Hubble feature.
 
 ## Overview
 
-The product spec captures what the user experiences. It should make desired behavior unambiguous enough that an agent can later write a technical plan and implementation without guessing product intent.
+The product spec settles the product decisions and spells out the user flow. A maintainer should be able to scan it in under a minute and either agree or point at the exact bullet they disagree with. It is a decision record, not documentation: write the choices, not the reasoning that led to them.
 
-Stay out of implementation. Do not include internal types, state layout, data flow, package boundaries, module architecture, algorithms, migrations, or file paths. Those belong in the companion `TECH.md` from `write-tech-spec`.
+Stay out of implementation. No internal types, state layout, data flow, module architecture, or file paths. Those belong in the companion `TECH.md` from `write-tech-spec`.
 
-"User" means the consumer of the surface:
+"User" means the consumer of the surface: the person using Hubble desktop or web, or the developer invoking `hubble` for CLI surfaces.
 
-- For app UX: the person using Hubble web or desktop.
-- For CLI surfaces: the developer invoking `hubble`.
-- For shared editor or sync behavior: the app/user-visible behavior callers can rely on, not the internals that produce it.
-
-Write specs to `specs/<id>/PRODUCT.md`, where `<id>` is one of:
-
-- a GitHub issue id, prefixed with `gh-` (for example `specs/gh-456/PRODUCT.md`)
-- a short kebab-case feature name (for example `specs/local-workspace-onboarding/PRODUCT.md`)
-
-`specs/` should contain only id-named directories as direct children. Use the sibling `TECH.md` path for the same id when one exists.
+Write specs to `specs/<id>/PRODUCT.md`, where `<id>` is a GitHub issue id prefixed with `gh-` (for example `specs/gh-456/PRODUCT.md`) or a short kebab-case feature name. `specs/` should contain only id-named directories as direct children. Use the sibling `TECH.md` path for the same id.
 
 Only create a GitHub issue when the user explicitly asks. This repo uses GitHub Issues on `bholmesdev/hubble.md` via `gh`; see `docs/agents/issue-tracker.md`.
 
@@ -32,74 +23,30 @@ Only create a GitHub issue when the user explicitly asks. This repo uses GitHub 
 
 Gather only enough context to write observable behavior:
 
-- Directory id: GitHub issue id or kebab-case feature name.
-- Target surface: `apps/desktop`, `apps/www`, CLI, editor, sync, or cross-surface.
-- Target users and their goal.
-- Existing user journey and desired user journey.
-- Existing Hubble screens, flows, and design-system primitives that should shape the experience.
-- Key states, edge cases, and user-visible failure modes.
-
-Read `CONTEXT.md` and relevant ADRs when terminology matters. Use the project glossary: Workspace, Workspace Folder, Plain Folder, Loose File, Cloud Sync, Markdown File, Asset, Embed, Embed Bundle, Workspace Snapshot.
-
-If the feature has UI or interaction design, inspect nearby Hubble screens and existing primitives before drafting Behavior. The spec should describe the intended user experience in terms of familiar app patterns and expected controls, without inventing a new visual system.
+- The existing user journey and the desired one.
+- Nearby Hubble screens, flows, and design-system primitives the experience should reuse. Do not invent a new visual system.
+- Project vocabulary from `CONTEXT.md`: Workspace, Workspace Folder, Plain Folder, Loose File, Cloud Sync, Markdown File, Asset, Embed, Embed Bundle, Workspace Snapshot.
 
 ## Structure
 
-Required sections:
+1. **Summary** — 1-2 sentences: the feature and the outcome.
+2. **Flows** — the core of the spec. For each user flow, spell it out step by step: where the user starts, what they do, what they see at each step. Group the decisions that shape each flow as short bullets directly under it: inputs and their results, error and empty states, cross-surface (desktop vs web) differences, and what stays unchanged. One bullet per decision; state the choice, not the options considered.
+3. **Out of scope** — bullets for what this slice deliberately does not do, including anything from the original issue that was dropped and why in a few words.
 
-1. **Summary** — 1-3 sentences describing the feature and desired outcome.
-2. **Behavior** — the core of the spec: numbered, testable, user-perspective invariants.
+Optional, only when they earn their lines:
 
-Optional sections:
+- **Problem** — one short paragraph, only when motivation is not obvious.
+- **Open questions** — prefer inline `**Open question:** ...` next to the affected bullet.
 
-- **Problem** — only when motivation is not obvious from Summary.
-- **Goals / Non-goals** — only when scope is ambiguous.
-- **Design context** — include only when existing screens, components, or flows are important references.
-- **UX validation** — include when a Computer Use walkthrough would clarify how to verify the experience.
-- **Open questions** — prefer inline `**Open question:** ...`; collect only if there are several.
+Do not include implementation, module breakdown, engineering validation, or success criteria. The E2E test plan lives in `TECH.md` and should derive directly from the Flows section here.
 
-Do not include implementation, module breakdown, package/app impact, engineering validation, or success criteria. `TECH.md` owns technical testing. `PRODUCT.md` may include a UX-only Computer Use validation outline: screens to open, user actions to perform, and visible outcomes to confirm.
+## Writing Guidance
 
-## Behavior Section
-
-Behavior is the spec. It should describe the user experience completely enough that `TECH.md` can reference its numbered invariants.
-
-Cover, as relevant:
-
-- Default behavior and happy path.
-- Every user-visible state and transition.
-- Inputs the user can provide and responses they see.
-- Existing design-system primitives the user should experience: dialogs, menus, buttons, lists, editor controls, toasts, empty states, and comparable Hubble patterns.
-- Empty, loading, pending, offline, permission, error, timeout, and cancellation states.
-- Cross-surface differences between desktop and web.
-- Workspace states: Workspace Folder, Plain Folder, Loose File, local-only Workspace, synced Workspace.
-- Races or concurrent user actions that affect what the user sees.
-- Accessibility, keyboard, focus, and reduced-motion expectations.
-- Invariants that must not regress.
-
-Write concrete observable behavior, not aspirations.
-
-## Length Heuristic
-
-- Trivial fix or narrow UI copy tweak: no spec.
-- Small feature: ~30-60 lines.
-- Medium cross-module feature: ~80-150 lines.
-- Large behavior-rich feature: longer is fine when Behavior carries the length.
-
-Keep framing thin. If the same idea appears in Summary, Problem, Goals, and Behavior, collapse the framing.
-
-## UX Validation
-
-When useful, include a short `## UX validation` section focused only on observable experience. Assume the agent has Computer Use access.
-
-Good entries name:
-
-- the app surface to open: desktop or web
-- the Workspace state to use: Workspace Folder, Plain Folder, Loose File, local-only Workspace, or synced Workspace
-- the exact user actions
-- the visible result, focus behavior, keyboard behavior, persistence, or error state to confirm
-
-Do not include unit tests, package commands, implementation probes, or module-level validation here. The companion `TECH.md` maps Behavior invariants to technical tests and full validation.
+- Every bullet is a testable, observable behavior: what the user does and what they see.
+- Cover the happy path completely, then only the edge cases where the answer is not obvious: error, empty, offline, conflict, and cancellation states that a reviewer would otherwise have to guess.
+- Name existing primitives the user experiences (dialog, toast, popover, menu item) rather than describing new UI from scratch.
+- Note Workspace-state differences (Workspace Folder, Plain Folder, Loose File, synced) only when the behavior actually differs.
+- Target 20-60 lines total. If a section restates another, collapse it. Long numbered invariant lists are a smell: fold them into the flow they belong to.
 
 ## Keep Current
 

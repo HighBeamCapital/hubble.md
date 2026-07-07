@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    name: Build and publish desktop app
+    name: Build and publish desktop app (macOS)
     runs-on: macos-latest
     permissions:
       contents: write
@@ -19,13 +19,13 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.9.0
+          version: 11.9.0
           run_install: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
+          node-version: 22.13.0
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -72,3 +72,104 @@ jobs:
           else
             echo "No CHANGELOG section for $VERSION; leaving release notes as-is."
           fi
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+
+  release-linux:
+    name: Build and publish desktop app (Linux ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches desktop version
+        run: |
+          VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          TAG="${GITHUB_REF_NAME#desktop-v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Tag desktop-v$TAG does not match apps/desktop package version $VERSION"
+            exit 1
+          fi
+
+      - name: Build and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm --filter @hubble.md/desktop... --if-present build
+          pnpm --filter @hubble.md/desktop exec electron-builder --linux --${{ matrix.arch }} --publish always
+
+  release-windows:
+    name: Build and publish desktop app (Windows ${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x64
+          - arm64
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches desktop version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          TAG="${GITHUB_REF_NAME#desktop-v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Tag desktop-v$TAG does not match apps/desktop package version $VERSION"
+            exit 1
+          fi
+
+      - name: Build and publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm --filter @hubble.md/desktop... --if-present build
+          pnpm --filter @hubble.md/desktop exec electron-builder --win --${{ matrix.arch }} --publish always

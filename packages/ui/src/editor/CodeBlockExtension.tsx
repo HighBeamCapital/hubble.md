@@ -37,8 +37,10 @@ lowlight.registerAlias({
 
 export const HubbleCodeBlock = CodeBlockLowlight.extend({
 	addKeyboardShortcuts() {
+		const { "Mod-Alt-c": _toggleCodeBlock, ...shortcuts } =
+			this.parent?.() ?? {};
 		return {
-			...this.parent?.(),
+			...shortcuts,
 			Tab: ({ editor }) => {
 				const { state } = editor;
 				const { selection } = state;

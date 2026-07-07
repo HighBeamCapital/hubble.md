@@ -3,6 +3,13 @@ export type FileEntry = {
 	modified_at: number;
 };
 
+export type FolderEntry = FileEntry;
+
+export type DirectoryListing = {
+	files: FileEntry[];
+	folders: FolderEntry[];
+};
+
 export type HtmlAppFileEntry = {
 	name: string;
 	path: string;
@@ -21,6 +28,10 @@ export type PersistPastedImageOutput = {
 	deduped: boolean;
 };
 
+export type OpenPathFromLinkResult =
+	| { kind: "markdown"; path: string }
+	| { kind: "opened" };
+
 export type WatchOptions = {
 	recursive: boolean;
 };
@@ -29,6 +40,8 @@ export type Unsubscribe = () => void;
 
 export type MenuState = {
 	hasWorkspace: boolean;
+	hasMarkdownNoteOpen: boolean;
+	isSourceMode: boolean;
 };
 
 export type DesktopUpdateStatus =
@@ -51,6 +64,11 @@ export type DesktopUpdateState = {
 
 export type DesktopPlatform = NodeJS.Platform;
 
+export type TerminalStartOptions = {
+	notePath?: string;
+	initialCommand?: string;
+};
+
 export type WorkspaceConfig = {
 	version: 1;
 	pinnedNotes: string[];
@@ -59,7 +77,7 @@ export type WorkspaceConfig = {
 export type DesktopApi = {
 	platform: DesktopPlatform;
 	homeDir: string;
-	listDirectory(path: string): Promise<FileEntry[]>;
+	listDirectory(path: string): Promise<DirectoryListing>;
 	listHtmlAppFiles(
 		workspacePath: string,
 		glob: string,
@@ -70,7 +88,9 @@ export type DesktopApi = {
 		config: WorkspaceConfig,
 	): Promise<void>;
 	readFileText(path: string): Promise<string>;
+	detectHubbleSkills(workspacePath: string): Promise<boolean>;
 	writeFileText(path: string, content: string): Promise<void>;
+	createFolder(path: string): Promise<void>;
 	renameFile(fromPath: string, toPath: string): Promise<void>;
 	pathExists(path: string): Promise<boolean>;
 	persistPastedImage(
@@ -91,6 +111,7 @@ export type DesktopApi = {
 		callback: (paths: string[]) => void,
 	): Promise<Unsubscribe>;
 	openExternalUrl(url: string): Promise<void>;
+	openPathFromLink(path: string): Promise<OpenPathFromLinkResult>;
 	revealFile(path: string): Promise<void>;
 	resolvePath(path: string): Promise<string>;
 	realPath(path: string): Promise<string>;
@@ -99,6 +120,7 @@ export type DesktopApi = {
 	getLaunchWorkspacePath(): Promise<string | null>;
 	setMenuState(state: MenuState): Promise<void>;
 	getUpdateState(): Promise<DesktopUpdateState>;
+	getFullScreen(): Promise<boolean>;
 	checkForUpdates(): Promise<void>;
 	installUpdate(): Promise<void>;
 	onOpenFile(callback: (path: string) => void): Unsubscribe;
@@ -106,10 +128,26 @@ export type DesktopApi = {
 		callback: (state: DesktopUpdateState) => void,
 	): Unsubscribe;
 	onMenuCreateMarkdownFile(callback: () => void): Unsubscribe;
+	onMenuCreateHtmlFile(callback: () => void): Unsubscribe;
 	onMenuOpenFile(callback: () => void): Unsubscribe;
 	onMenuOpenFolder(callback: () => void): Unsubscribe;
 	onMenuOpenSettings(callback: () => void): Unsubscribe;
+	onMenuCopyAsMarkdown(callback: () => void): Unsubscribe;
 	onMenuShowWorkspaceSwitcher(callback: () => void): Unsubscribe;
 	onMenuSyncWorkspace(callback: () => void): Unsubscribe;
+	onMenuToggleTerminal(callback: () => void): Unsubscribe;
+	onMenuToggleSourceMode(callback: () => void): Unsubscribe;
 	onWindowFocus(callback: () => void): Unsubscribe;
+	onFullScreenChange(callback: (isFullScreen: boolean) => void): Unsubscribe;
+
+	// Terminal
+	terminalStart(cwd: string, options?: TerminalStartOptions): Promise<string>;
+	terminalWrite(sessionId: string, data: string): Promise<void>;
+	terminalResize(sessionId: string, cols: number, rows: number): Promise<void>;
+	terminalStop(sessionId: string): Promise<void>;
+	onTerminalData(
+		sessionId: string,
+		callback: (data: string) => void,
+	): Unsubscribe;
+	onTerminalExit(sessionId: string, callback: () => void): Unsubscribe;
 };

@@ -1,57 +1,57 @@
 @import "./fonts.css";
 
 :root {
-  /* Brand palette anchors */
-  --forest: #173d2e;
-  --forest-deep: #0f2c20;
-  --banana: #f4c13c;
-  --banana-soft: #f7d06a;
-  --primary-yellow: #ffd400;
-  --ink: #0a0a0a;
-  --paper: #fbf7ec;
-  --cream: #fff8e7;
+	/* Brand palette anchors */
+	--forest: #173d2e;
+	--forest-deep: #0f2c20;
+	--banana: #f4c13c;
+	--banana-soft: #f7d06a;
+	--primary-yellow: #ffd400;
+	--ink: #0a0a0a;
+	--paper: #fbf7ec;
+	--cream: #fff8e7;
 
-  --font-rounded: "Fredoka", system-ui, sans-serif;
-  --font-body: "Satoshi", system-ui, sans-serif;
-  --font-chubbo: "Chubbo", system-ui, sans-serif;
-  --font-wide: "Obviously Wide", system-ui, sans-serif;
-  --font-hand: "Shantell Sans", "Radon", cursive;
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-mono: "Radon", ui-monospace, monospace;
+	--font-rounded: "Fredoka", system-ui, sans-serif;
+	--font-body: "Satoshi", system-ui, sans-serif;
+	--font-chubbo: "Chubbo", system-ui, sans-serif;
+	--font-wide: "Obviously Wide", system-ui, sans-serif;
+	--font-hand: "Shantell Sans", "Radon", cursive;
+	--font-serif: "Fraunces", Georgia, serif;
+	--font-mono: "Radon", ui-monospace, monospace;
 }
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
-  margin: 0;
+	box-sizing: border-box;
+	margin: 0;
 }
 
 html {
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
 }
 
 body {
-  font-family: var(--font-body);
-  line-height: 1.5;
+	font-family: var(--font-body);
+	line-height: 1.5;
 }
 
 img,
 svg {
-  display: block;
-  max-width: 100%;
+	display: block;
+	max-width: 100%;
 }
 
 a {
-  color: inherit;
+	color: inherit;
 }
 
 /* Recolorable solid logo via mask — paints the wordmark in currentColor */
 .wordmark {
-  display: inline-block;
-  background-color: currentColor;
-  -webkit-mask: url("/brand/wordmark.svg") no-repeat center / contain;
-  mask: url("/brand/wordmark.svg") no-repeat center / contain;
-  aspect-ratio: 145 / 36;
+	display: inline-block;
+	background-color: currentColor;
+	-webkit-mask: url("/brand/wordmark.svg") no-repeat center / contain;
+	mask: url("/brand/wordmark.svg") no-repeat center / contain;
+	aspect-ratio: 145 / 36;
 }

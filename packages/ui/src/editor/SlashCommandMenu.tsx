@@ -16,7 +16,9 @@ import MingcuteListCheckLine from "~icons/mingcute/list-check-line";
 import MingcuteListOrderedLine from "~icons/mingcute/list-ordered-line";
 import MingcuteQuoteLeftLine from "~icons/mingcute/quote-left-line";
 import MingcuteStrikethroughLine from "~icons/mingcute/strikethrough-line";
+import MingcuteTable2Line from "~icons/mingcute/table-2-line";
 import MingcuteTextLine from "~icons/mingcute/text-line";
+import { formatShortcut } from "../lib/shortcut";
 import { cn } from "../lib/utils";
 import { useCommandMenuPosition } from "./commandMenuPosition";
 import {
@@ -32,6 +34,9 @@ type SlashCommand = {
 	description: string;
 	aliases: string[];
 	icon: ComponentType<{ className?: string }>;
+	// Platform-agnostic accelerator spec (e.g. "CmdOrCtrl+Shift+8"), rendered
+	// per-platform via formatShortcut. Omit when the command has no shortcut.
+	shortcut?: string;
 };
 
 type MenuPosition = {
@@ -74,6 +79,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		description: "Create a simple list",
 		aliases: ["bullet", "bullets", "ul", "list"],
 		icon: MingcuteListCheckLine,
+		shortcut: "CmdOrCtrl+Shift+8",
 	},
 	{
 		kind: "orderedList",
@@ -81,6 +87,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		description: "Create an ordered list",
 		aliases: ["number", "numbered", "ol", "1."],
 		icon: MingcuteListOrderedLine,
+		shortcut: "CmdOrCtrl+Shift+7",
 	},
 	{
 		kind: "taskList",
@@ -88,6 +95,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		description: "Create a task list",
 		aliases: ["todo", "task", "check", "checkbox"],
 		icon: MingcuteListCheck2Line,
+		shortcut: "CmdOrCtrl+Shift+9",
 	},
 	{
 		kind: "blockquote",
@@ -109,8 +117,19 @@ const SLASH_COMMANDS: SlashCommand[] = [
 		description: "Toggle strikethrough",
 		aliases: ["strike", "s", "delete"],
 		icon: MingcuteStrikethroughLine,
+		shortcut: "CmdOrCtrl+Shift+X",
+	},
+	{
+		kind: "table",
+		title: "Table",
+		description: "Insert a table",
+		aliases: ["table", "grid"],
+		icon: MingcuteTable2Line,
 	},
 ];
+
+// Table cells only hold inline content, so block commands are hidden there.
+const INLINE_COMMANDS = new Set<SlashCommandKind>(["strike"]);
 
 export function SlashCommandMenu({
 	editor,
@@ -126,8 +145,11 @@ export function SlashCommandMenu({
 	const suppressedFromRef = useRef<number | null>(null);
 	const positionedFromRef = useRef<number | null>(null);
 	const menuRef = useRef<HTMLDivElement | null>(null);
-	const visibleCommands = SLASH_COMMANDS.filter((command) =>
-		matchesCommand(command, token?.query ?? ""),
+	const insideTable = editor?.isActive("table") ?? false;
+	const visibleCommands = SLASH_COMMANDS.filter(
+		(command) =>
+			matchesCommand(command, token?.query ?? "") &&
+			(!insideTable || INLINE_COMMANDS.has(command.kind)),
 	);
 	// Keep selection visible even when the current query filters out the
 	// previously selected command.
@@ -293,6 +315,14 @@ export function SlashCommandMenu({
 								<span className="block min-w-0 flex-1 truncate text-foreground">
 									{command.title}
 								</span>
+								{command.shortcut && (
+									<span
+										className="shrink-0 text-[10px] leading-none text-muted-foreground/60"
+										aria-hidden="true"
+									>
+										{formatShortcut(command.shortcut)}
+									</span>
+								)}
 							</Command.Item>
 						);
 					})}
