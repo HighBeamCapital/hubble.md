@@ -107,6 +107,7 @@ let pendingOpenPath: string | null = firstExistingFileArg(
 	process.argv.slice(1),
 );
 let pendingStandalonePath: string | null = null;
+let pendingFileAfterLoad: string | null = null;
 const launchWorkspacePath =
 	isDev && process.env.HUBBLE_DESKTOP_DEV_WORKSPACE
 		? resolvePath(process.env.HUBBLE_DESKTOP_DEV_WORKSPACE)
@@ -1150,6 +1151,11 @@ async function createWindow() {
 		window.webContents.setZoomFactor(zoomFactor);
 		await setTrafficLightInset(window, zoomFactor);
 		if (window.isDestroyed()) return;
+		if (pendingFileAfterLoad) {
+			const filePath = pendingFileAfterLoad;
+			pendingFileAfterLoad = null;
+			sendToRenderer("desktop:open-file", filePath);
+		}
 		window.show();
 	});
 
@@ -1723,11 +1729,12 @@ if (!singleInstanceLock) {
 		if (!openPath) return;
 		if (isWithinAnyGrantedRoot(openPath)) {
 			grantFileWithParent(openPath);
-			pendingOpenPath = openPath;
 			if (mainWindow) {
 				if (mainWindow.isMinimized()) mainWindow.restore();
 				mainWindow.focus();
 				sendToRenderer("desktop:open-file", toRendererPath(openPath));
+			} else {
+				pendingFileAfterLoad = toRendererPath(openPath);
 			}
 		} else {
 			void createStandaloneWindow(openPath);
