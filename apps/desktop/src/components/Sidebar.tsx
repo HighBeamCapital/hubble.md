@@ -29,6 +29,7 @@ import {
 	sidebarOpenStore,
 	workspaceStore,
 } from "../store/state";
+import { openTab } from "../store/tabs";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function Sidebar({
@@ -103,7 +104,10 @@ export function Sidebar({
 			getDisplayPath={relativePath}
 			onCollapse={collapseSidebar}
 			onSortModeChange={setSortMode}
-			onSelectFile={(path) => void loadPath(path)}
+			onSelectFile={(path) => {
+				openTab(path);
+				void loadPath(path);
+			}}
 			onRevealFile={(path) => void desktopApi.revealFile(path)}
 			onCopyFilePath={(path) => void copyFilePath(path)}
 			onRevealFolder={(folderId) =>

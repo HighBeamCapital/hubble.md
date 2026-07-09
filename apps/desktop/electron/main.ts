@@ -106,6 +106,7 @@ let saveWindowStateTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOpenPath: string | null = firstExistingFileArg(
 	process.argv.slice(1),
 );
+let pendingStandalonePath: string | null = null;
 const launchWorkspacePath =
 	isDev && process.env.HUBBLE_DESKTOP_DEV_WORKSPACE
 		? resolvePath(process.env.HUBBLE_DESKTOP_DEV_WORKSPACE)
@@ -576,7 +577,6 @@ function firstExistingFileArg(args: string[]): string | null {
 		const resolved = path.resolve(arg);
 		try {
 			if (fsSync.statSync(resolved).isFile()) {
-				grantFileWithParent(resolved);
 				return resolved;
 			}
 		} catch {
@@ -1722,6 +1722,7 @@ if (!singleInstanceLock) {
 		const openPath = firstExistingFileArg(argv.slice(1));
 		if (!openPath) return;
 		if (isWithinAnyGrantedRoot(openPath)) {
+			grantFileWithParent(openPath);
 			pendingOpenPath = openPath;
 			if (mainWindow) {
 				if (mainWindow.isMinimized()) mainWindow.restore();
@@ -1736,8 +1737,12 @@ if (!singleInstanceLock) {
 	app.on("open-file", (event, filePath) => {
 		event.preventDefault();
 		const resolved = resolvePath(filePath);
-		grantFileWithParent(resolved);
+		if (!grantsLoaded) {
+			pendingOpenPath = resolved;
+			return;
+		}
 		if (isWithinAnyGrantedRoot(resolved)) {
+			grantFileWithParent(resolved);
 			pendingOpenPath = resolved;
 			sendToRenderer("desktop:open-file", toRendererPath(resolved));
 		} else {
@@ -1748,6 +1753,12 @@ if (!singleInstanceLock) {
 	app.whenReady().then(async () => {
 		await loadGrants();
 		if (launchWorkspacePath) grantRoot(launchWorkspacePath);
+
+		if (pendingOpenPath && !isWithinAnyGrantedRoot(pendingOpenPath)) {
+			pendingStandalonePath = pendingOpenPath;
+			pendingOpenPath = null;
+		}
+
 		await saveGrants();
 		protocol.handle("hubble-asset", (request) => {
 			const url = new URL(request.url);
@@ -1760,7 +1771,14 @@ if (!singleInstanceLock) {
 		registerIpc();
 		buildMenu();
 		configureAutoUpdates();
-		await createWindow();
+
+		if (pendingStandalonePath) {
+			const filePath = pendingStandalonePath;
+			pendingStandalonePath = null;
+			void createStandaloneWindow(filePath);
+		} else {
+			await createWindow();
+		}
 	});
 
 	app.on("window-all-closed", () => {

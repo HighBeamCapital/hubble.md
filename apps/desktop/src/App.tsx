@@ -15,6 +15,7 @@ import MingcutePencilLine from "~icons/mingcute/pencil-line";
 import { HtmlAppEmptyState } from "./components/HtmlAppEmptyState";
 import { SettingsDialog, SettingsSection } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
+import { TabBar } from "./components/TabBar";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { Toolbar } from "./components/Toolbar";
 import {
@@ -69,6 +70,7 @@ import {
 } from "./store/state";
 import {
 	getInitialFilePath,
+	openTab,
 	setInitialFilePath,
 	useActiveTab,
 	useTabs,
@@ -130,6 +132,9 @@ function WorkspaceApp() {
 		null,
 	);
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
+
+	const { tabs, activeIndex, close, switchTo } = useTabs();
+	const activeTab = useActiveTab();
 
 	const readyVersion =
 		updateState?.status === "ready"
@@ -207,9 +212,26 @@ function WorkspaceApp() {
 			undefined;
 		const selected = await desktopApi.openFilePicker({ defaultPath });
 		if (typeof selected === "string") {
+			openTab(selected);
 			await loadPath(selected);
 		}
 	}, []);
+
+	const handleTabSwitch = useCallback(
+		(index: number) => {
+			switchTo(index);
+			const tab = tabs[index];
+			if (tab) void loadPath(tab.path);
+		},
+		[tabs, switchTo],
+	);
+
+	const handleTabClose = useCallback(
+		(path: string) => {
+			close(path);
+		},
+		[close],
+	);
 
 	useEffect(() => {
 		const currentPath = state.currentPath;
@@ -230,6 +252,18 @@ function WorkspaceApp() {
 			if (keymatch(event, "CmdOrCtrl+N")) {
 				event.preventDefault();
 				await createMarkdownFile();
+			} else if (keymatch(event, "CmdOrCtrl+T")) {
+				event.preventDefault();
+				await openFilePicker();
+			} else if (keymatch(event, "CmdOrCtrl+W")) {
+				event.preventDefault();
+				if (activeTab) close(activeTab.path);
+			} else if (keymatch(event, "CmdOrCtrl+Alt+ArrowLeft")) {
+				event.preventDefault();
+				if (activeIndex > 0) handleTabSwitch(activeIndex - 1);
+			} else if (keymatch(event, "CmdOrCtrl+Alt+ArrowRight")) {
+				event.preventDefault();
+				if (activeIndex < tabs.length - 1) handleTabSwitch(activeIndex + 1);
 			} else if (keymatch(event, "CmdOrCtrl+,")) {
 				event.preventDefault();
 				openSettings();
@@ -272,7 +306,16 @@ function WorkspaceApp() {
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [focusedSidebarPath, openFilePicker, openSettings]);
+	}, [
+		focusedSidebarPath,
+		openFilePicker,
+		openSettings,
+		activeTab,
+		activeIndex,
+		tabs.length,
+		close,
+		handleTabSwitch,
+	]);
 
 	useEffect(() => {
 		let active = true;
@@ -290,6 +333,7 @@ function WorkspaceApp() {
 
 	useEffect(() => {
 		const unlisten = desktopApi.onOpenFile((path) => {
+			openTab(path);
 			void loadPath(path);
 		});
 		return () => {
@@ -381,6 +425,15 @@ function WorkspaceApp() {
 				scrollContainer={scrollContainerEl}
 				showSidebarBadge={!sidebarOpen && showUpdateCallout}
 			/>
+			{tabs.length > 0 && (
+				<TabBar
+					tabs={tabs}
+					activeIndex={activeIndex}
+					onSwitch={handleTabSwitch}
+					onClose={handleTabClose}
+					onOpen={() => void openFilePicker()}
+				/>
+			)}
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<Sidebar
 					onFocusedPathChange={setFocusedSidebarPath}
@@ -840,46 +893,13 @@ function StandaloneApp() {
 
 	return (
 		<main className="flex h-dvh flex-col bg-background text-foreground">
-			<div className="flex items-center border-b border-border bg-muted/30">
-				<div className="flex min-h-0 flex-1 overflow-x-auto">
-					{tabs.map((tab, i) => {
-						const name = tab.path.split("/").pop() ?? tab.path;
-						const isActive = i === activeIndex;
-						return (
-							<button
-								key={tab.path}
-								type="button"
-								className={`group flex shrink-0 items-center gap-1.5 border-e border-border px-3 py-1.5 text-xs transition-colors ${
-									isActive
-										? "bg-background text-foreground"
-										: "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-								}`}
-								onClick={() => switchTo(i)}
-							>
-								<span className="max-w-[160px] truncate">{name}</span>
-								<button
-									type="button"
-									className="ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-									onClick={(e) => {
-										e.stopPropagation();
-										close(tab.path);
-									}}
-								>
-									×
-								</button>
-							</button>
-						);
-					})}
-				</div>
-				<button
-					type="button"
-					className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-					onClick={() => void handleOpenFile()}
-					title="Open file"
-				>
-					+
-				</button>
-			</div>
+			<TabBar
+				tabs={tabs}
+				activeIndex={activeIndex}
+				onSwitch={switchTo}
+				onClose={close}
+				onOpen={() => void handleOpenFile()}
+			/>
 
 			<section className="flex-1 min-h-0 overflow-hidden">
 				{status === "loading" && (
