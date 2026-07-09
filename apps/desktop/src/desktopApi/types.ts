@@ -74,6 +74,12 @@ export type WorkspaceConfig = {
 	pinnedNotes: string[];
 };
 
+export type StandaloneSettings = {
+	windowBounds: { width: number; height: number };
+	zoomFactor: number;
+	openTabs: string[];
+};
+
 export type DesktopApi = {
 	platform: DesktopPlatform;
 	homeDir: string;
@@ -139,6 +145,11 @@ export type DesktopApi = {
 	onMenuToggleSourceMode(callback: () => void): Unsubscribe;
 	onWindowFocus(callback: () => void): Unsubscribe;
 	onFullScreenChange(callback: (isFullScreen: boolean) => void): Unsubscribe;
+
+	// Standalone mode
+	getStandaloneSettings(): Promise<StandaloneSettings | null>;
+	saveStandaloneSettings(settings: StandaloneSettings): Promise<void>;
+	closeStandaloneWindow(): Promise<void>;
 
 	// Terminal
 	terminalStart(cwd: string, options?: TerminalStartOptions): Promise<string>;

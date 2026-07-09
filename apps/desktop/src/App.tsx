@@ -9,7 +9,7 @@ import {
 } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import MingcutePencilLine from "~icons/mingcute/pencil-line";
 import { HtmlAppEmptyState } from "./components/HtmlAppEmptyState";
@@ -67,6 +67,12 @@ import {
 	workspacePathStore,
 	workspaceStore,
 } from "./store/state";
+import {
+	getInitialFilePath,
+	setInitialFilePath,
+	useActiveTab,
+	useTabs,
+} from "./store/tabs";
 
 // Forces editor refresh when underlying TipTap extensions change
 const HMR_REV = (() => {
@@ -96,6 +102,19 @@ async function revealPath(path: string | null) {
 }
 
 function App() {
+	const isStandalone = useMemo(
+		() => new URLSearchParams(window.location.search).get("standalone") === "1",
+		[],
+	);
+
+	if (isStandalone) {
+		return <StandaloneApp />;
+	}
+
+	return <WorkspaceApp />;
+}
+
+function WorkspaceApp() {
 	const state = useStoreValue(viewerStore);
 	const workspacePath = useStoreValue(workspacePathStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
@@ -668,3 +687,223 @@ function MarkdownEditor({
 }
 
 export default App;
+
+function StandaloneApp() {
+	const params = useMemo(() => new URLSearchParams(window.location.search), []);
+	const initialFile = useMemo(() => {
+		const raw = params.get("file");
+		if (raw && !getInitialFilePath()) {
+			setInitialFilePath(raw);
+		}
+		return getInitialFilePath();
+	}, [params]);
+
+	const { tabs, activeIndex, open, close, switchTo } = useTabs();
+	const activeTab = useActiveTab();
+	const [content, setContent] = useState<string>("");
+	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+		"idle",
+	);
+	const [error, setError] = useState<string | null>(null);
+	const fileContentRef = useRef<Map<string, string>>(new Map());
+
+	useEffect(() => {
+		if (initialFile && tabs.length === 0) {
+			open(initialFile);
+		}
+	}, [initialFile, tabs.length, open]);
+
+	useEffect(() => {
+		if (!activeTab) {
+			setContent("");
+			setStatus("idle");
+			return;
+		}
+
+		const filePath = activeTab.path;
+		const cached = fileContentRef.current.get(filePath);
+		if (cached !== undefined) {
+			setContent(cached);
+			setStatus("ready");
+			return;
+		}
+
+		let disposed = false;
+		setStatus("loading");
+		setError(null);
+
+		void desktopApi
+			.readFileText(filePath)
+			.then((text) => {
+				if (disposed) return;
+				fileContentRef.current.set(filePath, text);
+				setContent(text);
+				setStatus("ready");
+			})
+			.catch((err) => {
+				if (disposed) return;
+				setStatus("error");
+				setError(err instanceof Error ? err.message : "Failed to open file.");
+			});
+
+		return () => {
+			disposed = true;
+		};
+	}, [activeTab]);
+
+	useEffect(() => {
+		if (!activeTab) return;
+		const filePath = activeTab.path;
+		let disposed = false;
+		let unwatch: (() => void) | null = null;
+
+		const handleChange = async (paths: string[]) => {
+			if (!paths.includes(filePath)) return;
+			try {
+				const nextContent = await desktopApi.readFileText(filePath);
+				if (disposed) return;
+				fileContentRef.current.set(filePath, nextContent);
+				setContent(nextContent);
+			} catch {
+				// File may have been deleted; ignore.
+			}
+		};
+
+		const setup = async () => {
+			unwatch = await desktopApi.watchPath(
+				filePath,
+				{ recursive: false },
+				(paths) => void handleChange(paths),
+			);
+			if (disposed && unwatch) unwatch();
+		};
+
+		void setup();
+		return () => {
+			disposed = true;
+			if (unwatch) unwatch();
+		};
+	}, [activeTab]);
+
+	const handleLocalChange = useCallback(
+		(newContent: string) => {
+			setContent(newContent);
+			if (activeTab) {
+				fileContentRef.current.set(activeTab.path, newContent);
+			}
+		},
+		[activeTab],
+	);
+
+	const handleSave = useCallback(async () => {
+		if (!activeTab) return;
+		const filePath = activeTab.path;
+		const currentContent = fileContentRef.current.get(filePath) ?? content;
+		try {
+			await desktopApi.writeFileText(filePath, currentContent);
+		} catch (err) {
+			toast.error("Failed to save", {
+				description: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}, [activeTab, content]);
+
+	const handleOpenFile = useCallback(async () => {
+		const selected = await desktopApi.openFilePicker({});
+		if (typeof selected === "string") {
+			open(selected);
+		}
+	}, [open]);
+
+	useEffect(() => {
+		const unsub = desktopApi.onMenuOpenFile(() => {
+			void handleOpenFile();
+		});
+		return unsub;
+	}, [handleOpenFile]);
+
+	useEffect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			const mod = e.metaKey || e.ctrlKey;
+			if (mod && e.key === "o") {
+				e.preventDefault();
+				void handleOpenFile();
+			}
+			if (mod && e.key === "w") {
+				e.preventDefault();
+				if (activeTab) close(activeTab.path);
+			}
+		}
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [handleOpenFile, activeTab, close]);
+
+	return (
+		<main className="flex h-dvh flex-col bg-background text-foreground">
+			<div className="flex items-center border-b border-border bg-muted/30">
+				<div className="flex min-h-0 flex-1 overflow-x-auto">
+					{tabs.map((tab, i) => {
+						const name = tab.path.split("/").pop() ?? tab.path;
+						const isActive = i === activeIndex;
+						return (
+							<button
+								key={tab.path}
+								type="button"
+								className={`group flex shrink-0 items-center gap-1.5 border-e border-border px-3 py-1.5 text-xs transition-colors ${
+									isActive
+										? "bg-background text-foreground"
+										: "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+								}`}
+								onClick={() => switchTo(i)}
+							>
+								<span className="max-w-[160px] truncate">{name}</span>
+								<button
+									type="button"
+									className="ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+									onClick={(e) => {
+										e.stopPropagation();
+										close(tab.path);
+									}}
+								>
+									×
+								</button>
+							</button>
+						);
+					})}
+				</div>
+				<button
+					type="button"
+					className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					onClick={() => void handleOpenFile()}
+					title="Open file"
+				>
+					+
+				</button>
+			</div>
+
+			<section className="flex-1 min-h-0 overflow-hidden">
+				{status === "loading" && (
+					<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						Loading…
+					</p>
+				)}
+				{status === "error" && (
+					<p className="flex h-full items-center justify-center text-sm text-destructive">
+						{error ?? "Failed to open file."}
+					</p>
+				)}
+				{status === "ready" && activeTab && (
+					<div className="flex h-full min-h-0 flex-col">
+						<MarkdownSourceEditor
+							key={activeTab.path}
+							path={activeTab.path}
+							initialMarkdown={content}
+							onLocalChange={handleLocalChange}
+							onSave={handleSave}
+						/>
+					</div>
+				)}
+			</section>
+		</main>
+	);
+}

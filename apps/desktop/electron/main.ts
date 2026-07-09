@@ -26,6 +26,7 @@ import type {
 	DesktopUpdateState,
 	DirectoryListing,
 	MenuState,
+	StandaloneSettings,
 	WorkspaceConfig,
 } from "../src/desktopApi/types";
 import {
@@ -129,6 +130,7 @@ const watchers = new Map<string, FSWatcher>();
 const grantedFiles = new Set<string>();
 const grantedRoots = new Set<string>();
 let grantsLoaded = false;
+const standaloneWindows = new Map<string, BrowserWindow>();
 
 const ignoreConfigFiles = [".gitignore", ".ignore"];
 const ignoredWorkspaceDirs = new Set([".git", "dist", "node_modules"]);
@@ -175,6 +177,10 @@ function grantsPath(): string {
 
 function windowStatePath(): string {
 	return path.join(app.getPath("userData"), "window-size.json");
+}
+
+function standaloneSettingsPath(): string {
+	return path.join(app.getPath("userData"), "standalone-settings.json");
 }
 
 function workspaceConfigPath(workspacePath: string): string {
@@ -392,6 +398,17 @@ function isWithin(rootPath: string, candidatePath: string): boolean {
 		relative === "" ||
 		(!relative.startsWith("..") && !path.isAbsolute(relative))
 	);
+}
+
+function isWithinAnyGrantedRoot(filePath: string): boolean {
+	const resolved = resolvePath(filePath);
+	for (const root of grantedRoots) {
+		if (isWithin(root, resolved)) return true;
+	}
+	for (const file of grantedFiles) {
+		if (resolved === file) return true;
+	}
+	return false;
 }
 
 /** Covers always-ignored workspace dirs in case Git ignores do not catch them. */
@@ -1175,6 +1192,104 @@ async function createWindow() {
 	}
 }
 
+async function loadStandaloneSettings(): Promise<StandaloneSettings | null> {
+	try {
+		const raw = await fs.readFile(standaloneSettingsPath(), "utf8");
+		const parsed = JSON.parse(raw) as Partial<StandaloneSettings>;
+		return {
+			windowBounds: parsed.windowBounds ?? { width: 900, height: 800 },
+			zoomFactor: parsed.zoomFactor ?? 1,
+			openTabs: Array.isArray(parsed.openTabs) ? parsed.openTabs : [],
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function persistStandaloneSettings(settings: StandaloneSettings) {
+	try {
+		await fs.mkdir(path.dirname(standaloneSettingsPath()), { recursive: true });
+		await fs.writeFile(
+			standaloneSettingsPath(),
+			JSON.stringify(settings, null, 2),
+		);
+	} catch {
+		// Best-effort persistence should not interrupt the user.
+	}
+}
+
+async function createStandaloneWindow(filePath: string) {
+	const resolved = resolvePath(filePath);
+	const existing = standaloneWindows.get(resolved);
+	if (existing && !existing.isDestroyed()) {
+		existing.focus();
+		return;
+	}
+
+	grantFileWithParent(resolved);
+	const settings = await loadStandaloneSettings();
+	const bounds = settings?.windowBounds ?? { width: 900, height: 800 };
+	const zoom = settings?.zoomFactor ?? 1;
+
+	const window = new BrowserWindow({
+		title: path.basename(resolved),
+		width: bounds.width,
+		height: bounds.height,
+		show: false,
+		titleBarStyle: "hidden",
+		...(process.platform !== "darwin"
+			? { titleBarOverlay: { color: "#ffffff", symbolColor: "#454545" } }
+			: {}),
+		trafficLightPosition: trafficLightPositionForZoom(zoom),
+		webPreferences: {
+			contextIsolation: true,
+			nodeIntegration: false,
+			preload: path.join(__dirname, "../preload/preload.mjs"),
+			sandbox: false,
+		},
+	});
+
+	standaloneWindows.set(resolved, window);
+
+	window.webContents.once("did-finish-load", async () => {
+		window.webContents.setZoomFactor(zoom);
+		await setTrafficLightInset(window, zoom);
+		if (window.isDestroyed()) return;
+		window.show();
+	});
+
+	window.on("resize", () => {
+		if (window.isDestroyed() || window.isMinimized()) return;
+		const b = window.getNormalBounds();
+		void persistStandaloneSettings({
+			windowBounds: { width: b.width, height: b.height },
+			zoomFactor: window.webContents.getZoomFactor(),
+			openTabs: [...standaloneWindows.keys()],
+		});
+	});
+
+	window.on("closed", () => {
+		standaloneWindows.delete(resolved);
+	});
+
+	const rendererPath =
+		isDev && process.env.ELECTRON_RENDERER_URL
+			? process.env.ELECTRON_RENDERER_URL
+			: path.join(__dirname, "../renderer/index.html");
+
+	const url = new URL(rendererPath);
+	url.searchParams.set("standalone", "1");
+	url.searchParams.set("file", toRendererPath(resolved));
+
+	if (isDev && process.env.ELECTRON_RENDERER_URL) {
+		await window.loadURL(url.toString());
+	} else {
+		await window.loadFile(path.join(__dirname, "../renderer/index.html"), {
+			search: url.search,
+		});
+	}
+}
+
 function registerIpc() {
 	setupTerminalIpc(sendToRenderer);
 
@@ -1567,6 +1682,24 @@ function registerIpc() {
 		};
 		buildMenu();
 	});
+
+	ipcMain.handle("desktop:standalone:load-settings", async () => {
+		return await loadStandaloneSettings();
+	});
+
+	ipcMain.handle(
+		"desktop:standalone:save-settings",
+		async (_event, settings: StandaloneSettings) => {
+			await persistStandaloneSettings(settings);
+		},
+	);
+
+	ipcMain.handle("desktop:standalone:close-window", (event) => {
+		const win = BrowserWindow.fromWebContents(event.sender);
+		if (win && !win.isDestroyed()) {
+			win.close();
+		}
+	});
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -1588,11 +1721,15 @@ if (!singleInstanceLock) {
 	app.on("second-instance", (_event, argv) => {
 		const openPath = firstExistingFileArg(argv.slice(1));
 		if (!openPath) return;
-		pendingOpenPath = openPath;
-		if (mainWindow) {
-			if (mainWindow.isMinimized()) mainWindow.restore();
-			mainWindow.focus();
-			sendToRenderer("desktop:open-file", toRendererPath(openPath));
+		if (isWithinAnyGrantedRoot(openPath)) {
+			pendingOpenPath = openPath;
+			if (mainWindow) {
+				if (mainWindow.isMinimized()) mainWindow.restore();
+				mainWindow.focus();
+				sendToRenderer("desktop:open-file", toRendererPath(openPath));
+			}
+		} else {
+			void createStandaloneWindow(openPath);
 		}
 	});
 
@@ -1600,8 +1737,12 @@ if (!singleInstanceLock) {
 		event.preventDefault();
 		const resolved = resolvePath(filePath);
 		grantFileWithParent(resolved);
-		pendingOpenPath = resolved;
-		sendToRenderer("desktop:open-file", toRendererPath(resolved));
+		if (isWithinAnyGrantedRoot(resolved)) {
+			pendingOpenPath = resolved;
+			sendToRenderer("desktop:open-file", toRendererPath(resolved));
+		} else {
+			void createStandaloneWindow(resolved);
+		}
 	});
 
 	app.whenReady().then(async () => {
