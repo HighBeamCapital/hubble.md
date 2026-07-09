@@ -17,11 +17,14 @@ export function TabBar({
 		<div className="flex items-center border-b border-border bg-muted/30">
 			<div className="flex min-h-0 flex-1 overflow-x-auto">
 				{tabs.map((tab, i) => {
-					const name = tab.path.split("/").pop() ?? tab.path;
+					const name =
+						tab.path === ""
+							? "Untitled"
+							: (tab.path.split("/").pop() ?? tab.path);
 					const isActive = i === activeIndex;
 					return (
 						<button
-							key={tab.path}
+							key={tab.path || `untitled-${i}`}
 							type="button"
 							className={`group flex shrink-0 items-center gap-1.5 border-e border-border px-3 py-1.5 text-xs transition-colors ${
 								isActive

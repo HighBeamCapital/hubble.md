@@ -71,6 +71,8 @@ import {
 import {
 	getInitialFilePath,
 	openTab,
+	openUntitledTab,
+	renameTab,
 	setInitialFilePath,
 	useActiveTab,
 	useTabs,
@@ -86,6 +88,18 @@ const HMR_REV = (() => {
 
 function focusSidebarNav() {
 	document.querySelector<HTMLElement>(SIDEBAR_NAV_SELECTOR)?.focus();
+}
+
+function filenameFromMarkdown(content: string): string | null {
+	const match = content.match(/^#\s+(.+)$/m);
+	if (!match) return null;
+	return match[1]
+		.toLowerCase()
+		.replace(/[^a-z0-9\s-]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "")
+		.slice(0, 80);
 }
 
 async function copyFilePath(path: string | null) {
@@ -221,7 +235,7 @@ function WorkspaceApp() {
 		(index: number) => {
 			switchTo(index);
 			const tab = tabs[index];
-			if (tab) void loadPath(tab.path);
+			if (tab && tab.path !== "") void loadPath(tab.path);
 		},
 		[tabs, switchTo],
 	);
@@ -251,10 +265,14 @@ function WorkspaceApp() {
 		const onKeyDown = async (event: KeyboardEvent) => {
 			if (keymatch(event, "CmdOrCtrl+N")) {
 				event.preventDefault();
-				await createMarkdownFile();
+				const prevUntitled = activeTab?.path === "" ? activeTab : null;
+				const created = await createMarkdownFile();
+				if (prevUntitled && created) {
+					renameTab("", created);
+				}
 			} else if (keymatch(event, "CmdOrCtrl+T")) {
 				event.preventDefault();
-				await openFilePicker();
+				openUntitledTab();
 			} else if (keymatch(event, "CmdOrCtrl+W")) {
 				event.preventDefault();
 				if (activeTab) close(activeTab.path);
@@ -457,9 +475,15 @@ function WorkspaceApp() {
 						{state.status === "error" && (
 							<p>{state.error ?? "Failed to open file."}</p>
 						)}
+						{activeTab?.path === "" && (
+							<div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+								⌘+N For New
+							</div>
+						)}
 						{state.status !== "loading" &&
 							state.status !== "error" &&
-							!state.currentPath && (
+							!state.currentPath &&
+							activeTab?.path !== "" && (
 								<div className="flex h-full items-center justify-center p-6">
 									{hasWorkspace ? (
 										<Button onClick={() => void openFilePicker()}>
@@ -773,6 +797,12 @@ function StandaloneApp() {
 			return;
 		}
 
+		if (activeTab.path === "") {
+			setContent("");
+			setStatus("idle");
+			return;
+		}
+
 		const filePath = activeTab.path;
 		const cached = fileContentRef.current.get(filePath);
 		if (cached !== undefined) {
@@ -805,7 +835,7 @@ function StandaloneApp() {
 	}, [activeTab]);
 
 	useEffect(() => {
-		if (!activeTab) return;
+		if (!activeTab || activeTab.path === "") return;
 		const filePath = activeTab.path;
 		let disposed = false;
 		let unwatch: (() => void) | null = null;
@@ -850,16 +880,52 @@ function StandaloneApp() {
 
 	const handleSave = useCallback(async () => {
 		if (!activeTab) return;
-		const filePath = activeTab.path;
-		const currentContent = fileContentRef.current.get(filePath) ?? content;
+		const currentContent =
+			fileContentRef.current.get(activeTab.path) ?? content;
+
+		if (activeTab.path === "") {
+			const stem = filenameFromMarkdown(currentContent);
+			if (stem) {
+				const slug = stem
+					.toLowerCase()
+					.replace(/[^a-z0-9\s-]/g, "")
+					.replace(/\s+/g, "-")
+					.replace(/-+/g, "-")
+					.replace(/^-|-$/g, "")
+					.slice(0, 80);
+				const dir = await desktopApi.resolvePath("~/Desktop");
+				const path = `${dir}/${slug}.md`;
+				try {
+					await desktopApi.writeFileText(path, currentContent);
+					open(path);
+				} catch (err) {
+					toast.error("Failed to save", {
+						description: err instanceof Error ? err.message : String(err),
+					});
+				}
+			} else {
+				const selected = await desktopApi.saveMarkdownFilePicker({});
+				if (!selected) return;
+				try {
+					await desktopApi.writeFileText(selected, currentContent);
+					open(selected);
+				} catch (err) {
+					toast.error("Failed to save", {
+						description: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+			return;
+		}
+
 		try {
-			await desktopApi.writeFileText(filePath, currentContent);
+			await desktopApi.writeFileText(activeTab.path, currentContent);
 		} catch (err) {
 			toast.error("Failed to save", {
 				description: err instanceof Error ? err.message : String(err),
 			});
 		}
-	}, [activeTab, content]);
+	}, [activeTab, content, open]);
 
 	const handleOpenFile = useCallback(async () => {
 		const selected = await desktopApi.openFilePicker({});
@@ -882,6 +948,18 @@ function StandaloneApp() {
 				e.preventDefault();
 				void handleOpenFile();
 			}
+			if (mod && e.key === "t") {
+				e.preventDefault();
+				openUntitledTab();
+			}
+			if (mod && e.key === "n") {
+				e.preventDefault();
+				openUntitledTab();
+			}
+			if (mod && e.key === "s") {
+				e.preventDefault();
+				void handleSave();
+			}
 			if (mod && e.key === "w") {
 				e.preventDefault();
 				if (activeTab) close(activeTab.path);
@@ -889,7 +967,7 @@ function StandaloneApp() {
 		}
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleOpenFile, activeTab, close]);
+	}, [handleOpenFile, handleSave, activeTab, close]);
 
 	return (
 		<main className="flex h-dvh flex-col bg-background text-foreground">
@@ -902,6 +980,11 @@ function StandaloneApp() {
 			/>
 
 			<section className="flex-1 min-h-0 overflow-hidden">
+				{activeTab?.path === "" && (
+					<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						⌘+N For New
+					</p>
+				)}
 				{status === "loading" && (
 					<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
 						Loading…

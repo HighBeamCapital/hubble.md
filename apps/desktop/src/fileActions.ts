@@ -6,8 +6,8 @@ import { workspaceStore } from "./store/state";
 
 export async function createMarkdownFile() {
 	const workspacePath = workspaceStore.get().workspacePath;
-	if (!workspacePath) return;
-	await createMarkdownFileInFolder(workspacePath);
+	if (!workspacePath) return null;
+	return createMarkdownFileInFolder(workspacePath);
 }
 
 export async function createHtmlFile() {

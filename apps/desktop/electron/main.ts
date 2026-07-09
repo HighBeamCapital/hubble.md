@@ -1226,7 +1226,7 @@ async function createStandaloneWindow(filePath: string) {
 		return;
 	}
 
-	grantFileWithParent(resolved);
+	grantFile(resolved);
 	const settings = await loadStandaloneSettings();
 	const bounds = settings?.windowBounds ?? { width: 900, height: 800 };
 	const zoom = settings?.zoomFactor ?? 1;
@@ -1742,7 +1742,7 @@ if (!singleInstanceLock) {
 			return;
 		}
 		if (isWithinAnyGrantedRoot(resolved)) {
-			grantFileWithParent(resolved);
+			grantFile(resolved);
 			pendingOpenPath = resolved;
 			sendToRenderer("desktop:open-file", toRendererPath(resolved));
 		} else {

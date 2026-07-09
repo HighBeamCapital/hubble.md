@@ -30,7 +30,7 @@ function persistDebounced(state: TabsState) {
 		void desktopApi.saveStandaloneSettings({
 			windowBounds: { width: 900, height: 800 },
 			zoomFactor: 1,
-			openTabs: state.tabs.map((t) => t.path),
+			openTabs: state.tabs.filter((t) => t.path !== "").map((t) => t.path),
 		});
 	}, 300);
 }
@@ -55,15 +55,35 @@ export const tabsStore = store<TabsState>(
 
 export function openTab(filePath: string) {
 	const current = tabsStore.get();
-	const existingIndex = current.tabs.findIndex((t) => t.path === filePath);
-	if (existingIndex !== -1) {
-		tabsStore.set({ ...current, activeIndex: existingIndex });
-		return;
+	if (filePath !== "") {
+		const existingIndex = current.tabs.findIndex((t) => t.path === filePath);
+		if (existingIndex !== -1) {
+			tabsStore.set({ ...current, activeIndex: existingIndex });
+			return;
+		}
 	}
 	tabsStore.set({
 		tabs: [...current.tabs, { path: filePath }],
 		activeIndex: current.tabs.length,
 	});
+}
+
+export function openUntitledTab() {
+	const current = tabsStore.get();
+	tabsStore.set({
+		tabs: [...current.tabs, { path: "" }],
+		activeIndex: current.tabs.length,
+	});
+}
+
+export function renameTab(oldPath: string, newPath: string) {
+	const current = tabsStore.get();
+	const index = current.tabs.findIndex((t) => t.path === oldPath);
+	if (index === -1) return;
+	const nextTabs = current.tabs.map((t, i) =>
+		i === index ? { path: newPath } : t,
+	);
+	tabsStore.set({ ...current, tabs: nextTabs });
 }
 
 export function closeTab(filePath: string) {
