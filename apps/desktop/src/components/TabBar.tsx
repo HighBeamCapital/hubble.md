@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Tab } from "../store/tabs";
 
 export function TabBar({
@@ -6,15 +7,28 @@ export function TabBar({
 	onSwitch,
 	onClose,
 	onOpen,
+	platformInset = false,
 }: {
 	tabs: Tab[];
 	activeIndex: number;
 	onSwitch: (index: number) => void;
 	onClose: (path: string) => void;
 	onOpen: () => void;
+	platformInset?: boolean;
 }) {
+	const dragStyle = { WebkitAppRegion: "drag" } as CSSProperties;
+	const noDragStyle = { WebkitAppRegion: "no-drag" } as CSSProperties;
+
 	return (
-		<div className="flex items-center border-b border-border bg-muted/30">
+		<div
+			className="flex items-center border-b border-border bg-muted/30"
+			style={{
+				...dragStyle,
+				paddingInlineStart: platformInset
+					? "var(--hubble-traffic-light-inset, 70px)"
+					: 0,
+			}}
+		>
 			<div className="flex min-h-0 flex-1 overflow-x-auto">
 				{tabs.map((tab, i) => {
 					const name =
@@ -26,6 +40,7 @@ export function TabBar({
 						<button
 							key={tab.path || `untitled-${i}`}
 							type="button"
+							style={noDragStyle}
 							className={`group flex shrink-0 items-center gap-1.5 border-e border-border px-3 py-1.5 text-xs transition-colors ${
 								isActive
 									? "bg-background text-foreground"
@@ -36,6 +51,7 @@ export function TabBar({
 							<span className="max-w-[160px] truncate">{name}</span>
 							<button
 								type="button"
+								style={noDragStyle}
 								className="ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
 								onClick={(e) => {
 									e.stopPropagation();
@@ -50,6 +66,7 @@ export function TabBar({
 			</div>
 			<button
 				type="button"
+				style={noDragStyle}
 				className="flex size-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				onClick={onOpen}
 				title="Open file"

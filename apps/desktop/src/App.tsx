@@ -117,6 +117,15 @@ async function revealPath(path: string | null) {
 	}
 }
 
+function useIsFullScreen() {
+	const [isFullScreen, setIsFullScreen] = useState(false);
+	useEffect(() => {
+		void desktopApi.getFullScreen().then(setIsFullScreen);
+		return desktopApi.onFullScreenChange(setIsFullScreen);
+	}, []);
+	return isFullScreen;
+}
+
 function App() {
 	const isStandalone = useMemo(
 		() => new URLSearchParams(window.location.search).get("standalone") === "1",
@@ -135,6 +144,7 @@ function WorkspaceApp() {
 	const workspacePath = useStoreValue(workspacePathStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const hasWorkspace = workspacePath !== null;
+	const isFullScreen = useIsFullScreen();
 	const [scrollContainerEl, setScrollContainerEl] =
 		useState<HTMLDivElement | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -450,6 +460,7 @@ function WorkspaceApp() {
 					onSwitch={handleTabSwitch}
 					onClose={handleTabClose}
 					onOpen={() => void openFilePicker()}
+					platformInset={!isFullScreen}
 				/>
 			)}
 			<div className="flex min-h-0 flex-1 overflow-hidden">
@@ -766,6 +777,7 @@ function MarkdownEditor({
 export default App;
 
 function StandaloneApp() {
+	const isFullScreen = useIsFullScreen();
 	const params = useMemo(() => new URLSearchParams(window.location.search), []);
 	const initialFile = useMemo(() => {
 		const raw = params.get("file");
@@ -785,8 +797,12 @@ function StandaloneApp() {
 	const fileContentRef = useRef<Map<string, string>>(new Map());
 
 	useEffect(() => {
-		if (initialFile && tabs.length === 0) {
-			open(initialFile);
+		if (tabs.length === 0) {
+			if (initialFile) {
+				open(initialFile);
+			} else {
+				openUntitledTab();
+			}
 		}
 	}, [initialFile, tabs.length, open]);
 
@@ -977,6 +993,7 @@ function StandaloneApp() {
 				onSwitch={switchTo}
 				onClose={close}
 				onOpen={() => void handleOpenFile()}
+				platformInset={!isFullScreen}
 			/>
 
 			<section className="flex-1 min-h-0 overflow-hidden">

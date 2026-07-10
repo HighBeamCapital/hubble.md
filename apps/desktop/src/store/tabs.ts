@@ -62,10 +62,17 @@ export function openTab(filePath: string) {
 			return;
 		}
 	}
-	tabsStore.set({
-		tabs: [...current.tabs, { path: filePath }],
-		activeIndex: current.tabs.length,
-	});
+	if (current.tabs.length > 0 && current.activeIndex >= 0) {
+		const nextTabs = current.tabs.map((t, i) =>
+			i === current.activeIndex ? { path: filePath } : t,
+		);
+		tabsStore.set({ tabs: nextTabs, activeIndex: current.activeIndex });
+	} else {
+		tabsStore.set({
+			tabs: [...current.tabs, { path: filePath }],
+			activeIndex: current.tabs.length,
+		});
+	}
 }
 
 export function openUntitledTab() {
@@ -94,7 +101,11 @@ export function closeTab(filePath: string) {
 	const nextTabs = current.tabs.filter((_, i) => i !== index);
 	if (nextTabs.length === 0) {
 		tabsStore.set({ tabs: [], activeIndex: -1 });
-		void desktopApi.closeStandaloneWindow();
+		const isStandalone =
+			new URLSearchParams(window.location.search).get("standalone") === "1";
+		if (isStandalone) {
+			void desktopApi.closeStandaloneWindow();
+		}
 		return;
 	}
 
