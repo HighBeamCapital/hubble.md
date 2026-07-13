@@ -1,40 +1,31 @@
 {
-	"$schema": "../node_modules/@tauri-apps/cli/schema.json",
-	"build": {
-		"beforeDevCommand": "pnpm --filter @hubble.md/desktop dev",
-		"beforeBuildCommand": "pnpm --filter @hubble.md/desktop build",
-		"devPath": "http://localhost:1420",
-		"distDir": "../desktop/dist"
-	},
-	"package": {
-		"productName": "Hubble",
-		"version": "0.1.17"
-	},
-	"tauri": {
-		"bundle": {
-			"active": true,
-			"targets": ["ios"],
-			"icon": [
-				"icons/128x128@2x.png",
-				"icons/128x128.png",
-				"icons/256x256@2x.png",
-				"icons/256x256.png",
-				"icons/512x512.png"
-			],
-			"identifier": "md.hubble.app",
-			"publisher": "HighBeamCapital"
-		},
-		"security": {
-			"csp": "default-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
-			"freezePrototype": true
-		},
-		"windows": [
-			{
-				"title": "Hubble",
-				"width": 400,
-				"height": 600,
-				"resizable": true
-			}
-		]
-	}
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeDevCommand": "pnpm --filter @hubble.md/desktop dev",
+    "beforeBuildCommand": "pnpm --filter @hubble.md/desktop build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../desktop/dist"
+  },
+  "package": {
+    "productName": "Hubble",
+    "version": "0.1.17"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "targets": ["ios"],
+      "icon": [
+        "icons/128x128@2x.png",
+        "icons/128x128.png",
+        "icons/256x256@2x.png",
+        "icons/256x256.png",
+        "icons/512x512.png"
+      ],
+      "identifier": "md.hubble.app",
+      "publisher": "HighBeamCapital"
+    },
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    }
+  }
 }
