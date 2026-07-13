@@ -1,0 +1,23 @@
+{
+  "name": "@hubble.md/ios",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@hubble.md/ui": "workspace:*",
+    "@hubble.md/shell": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "tauri": {
+    "$schema": "../node_modules/@tauri-apps/cli/schema.json"
+  }
+}
