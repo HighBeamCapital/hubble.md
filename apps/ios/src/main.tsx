@@ -3,18 +3,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./style.css";
 
-// Error handling
-window.addEventListener("error", (e) => {
-    console.error("Global error:", e.error);
-    const root = document.getElementById("root");
-    if (root) {
-        root.innerHTML = `<div style="padding: 20px; color: red;">
-            <h2>Error Loading App</h2>
-            <pre>${e.error?.message || "Unknown error"}</pre>
-        </div>`;
-    }
-});
-
 // Theme init
 const storedTheme = localStorage.getItem("hubble:theme");
 const isDark = storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -33,13 +21,20 @@ function MobileApp() {
     );
 }
 
+// Mount React app
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+root.render(
+    <React.StrictMode>
+        <MobileApp />
+    </React.StrictMode>,
+);
+
+// Fix: Show window after mount (Tauri iOS needs this)
 try {
-    ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-        <React.StrictMode>
-            <MobileApp />
-        </React.StrictMode>,
-    );
+    const { getCurrentWebviewWindow } = require("@tauri-apps/api/webviewWindow");
+    if (getCurrentWebviewWindow) {
+        getCurrentWebviewWindow().show();
+    }
 } catch (e) {
-    console.error("Render error:", e);
-    document.getElementById("root")!.innerHTML = `<div style="padding: 20px;">Failed: ${e}</div>`;
+    // Tauri API not available in dev mode
 }
