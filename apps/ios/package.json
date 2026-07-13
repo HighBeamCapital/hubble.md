@@ -9,15 +9,19 @@
 		"tauri": "tauri"
 	},
 	"dependencies": {
+		"@hubble.md/editor": "workspace:*",
+		"@hubble.md/ui": "workspace:*",
 		"@tauri-apps/api": "^2",
 		"@tauri-apps/plugin-dialog": "^2",
 		"@tauri-apps/plugin-fs": "^2",
-		"@hubble.md/ui": "workspace:*",
-		"@hubble.md/editor": "workspace:*",
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^2"
+		"@tailwindcss/vite": "^4.1.18",
+		"@tauri-apps/cli": "^2",
+		"@vitejs/plugin-react": "^4.7.0",
+		"tailwindcss": "^4.1.18",
+		"vite": "^7.3.5"
 	}
 }
