@@ -4,7 +4,6 @@
 	"version": "0.1.17",
 	"identifier": "md.hubble.app",
 	"build": {
-		"devUrl": "http://localhost:1421",
-		"frontendDist": "../dist"
+		"devUrl": "http://localhost:1421/"
 	}
 }
