@@ -45,6 +45,6 @@ packages/sync-backend/convex/*.js.map
 .idea/
 .vscode/
 
-# agent tools
+# local tooling
 .opencode/
-graphify-out
+graphify-out/
