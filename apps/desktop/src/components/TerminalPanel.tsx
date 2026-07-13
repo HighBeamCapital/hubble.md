@@ -160,9 +160,10 @@ const DARK_THEME = {
 	brightWhite: "#e5e5e5",
 };
 
-export function TerminalPanel() {
+export function TerminalPanel({ cwd: cwdProp }: { cwd?: string } = {}) {
 	const isOpen = useStoreValue(terminalOpenStore);
 	const workspacePath = useStoreValue(workspacePathStore);
+	const cwd = cwdProp ?? workspacePath;
 	const pendingTerminalCommand = useStoreValue(pendingTerminalCommandStore);
 	const [{ sessions, activeSessionId }, dispatch] = useReducer(
 		terminalStateReducer,
@@ -234,7 +235,7 @@ export function TerminalPanel() {
 	// retries a chat launch that arrived while another session was starting.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: startSession is render-local
 	useEffect(() => {
-		if (!isOpen || !workspacePath || isInitializingRef.current) return;
+		if (!isOpen || !cwd || isInitializingRef.current) return;
 		if (!pendingTerminalCommand && sessions.length > 0) return;
 
 		isInitializingRef.current = true;
@@ -253,7 +254,7 @@ export function TerminalPanel() {
 				isInitializingRef.current = false;
 			}
 		})();
-	}, [isOpen, pendingTerminalCommand, workspacePath, sessions.length]);
+	}, [isOpen, pendingTerminalCommand, cwd, sessions.length]);
 
 	const startSession = async (
 		title: string,
@@ -262,17 +263,17 @@ export function TerminalPanel() {
 		setStartError(null);
 		try {
 			while (true) {
-				const requestedWorkspacePath = workspacePathStore.get();
-				if (!requestedWorkspacePath) return;
+				const requestedCwd = workspacePathStore.get() ?? cwd;
+				if (!requestedCwd) return;
 				const notePath = viewerStore.get().currentPath ?? undefined;
 				const sessionId = await desktopApi.terminalStart(
-					requestedWorkspacePath,
+					requestedCwd,
 					{
 						...(notePath ? { notePath } : {}),
 						...options,
 					},
 				);
-				if (workspacePathStore.get() === requestedWorkspacePath) {
+				if ((workspacePathStore.get() ?? cwd) === requestedCwd) {
 					dispatch({
 						type: "add",
 						session: { id: sessionId, title },

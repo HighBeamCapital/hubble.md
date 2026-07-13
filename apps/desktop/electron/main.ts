@@ -576,7 +576,8 @@ function firstExistingFileArg(args: string[]): string | null {
 }
 
 function sendToRenderer(channel: string, ...args: unknown[]) {
-	mainWindow?.webContents.send(channel, ...args);
+	const target = BrowserWindow.getFocusedWindow() ?? mainWindow;
+	target?.webContents.send(channel, ...args);
 }
 
 function assetPathFromUrl(url: URL): string {
@@ -822,7 +823,7 @@ function buildMenu() {
 					id: "toggle-terminal",
 					label: "Toggle Terminal",
 					accelerator: "CmdOrCtrl+J",
-					enabled: menuState.hasWorkspace,
+					enabled: menuState.hasWorkspace || menuState.hasMarkdownNoteOpen,
 					click: () => sendToRenderer("desktop:menu-toggle-terminal"),
 				},
 				{

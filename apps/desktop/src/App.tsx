@@ -32,6 +32,7 @@ import { createImageExtension } from "./editor/ImageExtension";
 import { createHtmlFile, createMarkdownFile } from "./fileActions";
 import { copyText } from "./lib/clipboard";
 import {
+	dirname,
 	hasHtmlExtension,
 	hasMarkdownExtension,
 	relativeWorkspacePath,
@@ -789,6 +790,7 @@ function StandaloneApp() {
 
 	const { tabs, activeIndex, open, close, switchTo } = useTabs();
 	const activeTab = useActiveTab();
+	const viewMode = useStoreValue(viewerStore).viewMode;
 	const [content, setContent] = useState<string>("");
 	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
 		"idle",
@@ -958,6 +960,37 @@ function StandaloneApp() {
 	}, [handleOpenFile]);
 
 	useEffect(() => {
+		const hasMarkdown =
+			typeof activeTab?.path === "string" &&
+			activeTab.path !== "" &&
+			hasMarkdownExtension(activeTab.path);
+		void desktopApi.setMenuState({
+			hasWorkspace: false,
+			hasMarkdownNoteOpen: hasMarkdown,
+			isSourceMode: viewMode === "source",
+		});
+	}, [activeTab?.path, viewMode]);
+
+	useEffect(() => {
+		const disposers = [
+			desktopApi.onMenuToggleTerminal(() => toggleTerminal()),
+			desktopApi.onMenuToggleSourceMode(() => {
+				if (
+					!activeTab ||
+					activeTab.path === "" ||
+					!hasMarkdownExtension(activeTab.path)
+				) {
+					return;
+				}
+				setViewerMode(viewMode === "source" ? "rich" : "source");
+			}),
+		];
+		return () => {
+			for (const dispose of disposers) dispose();
+		};
+	}, [activeTab, viewMode]);
+
+	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			const mod = e.metaKey || e.ctrlKey;
 			if (mod && e.key === "o") {
@@ -980,10 +1013,24 @@ function StandaloneApp() {
 				e.preventDefault();
 				if (activeTab) close(activeTab.path);
 			}
+			if (mod && e.key === "j") {
+				e.preventDefault();
+				toggleTerminal();
+			}
+			if (e.altKey && mod && e.key === "u") {
+				e.preventDefault();
+				if (
+					activeTab &&
+					activeTab.path !== "" &&
+					hasMarkdownExtension(activeTab.path)
+				) {
+					setViewerMode(viewMode === "source" ? "rich" : "source");
+				}
+			}
 		}
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleOpenFile, handleSave, activeTab, close]);
+	}, [handleOpenFile, handleSave, activeTab, close, viewMode]);
 
 	return (
 		<main className="flex h-dvh flex-col bg-background text-foreground">
@@ -1014,33 +1061,53 @@ function StandaloneApp() {
 				)}
 				{status === "ready" && activeTab && (
 					<div className="flex h-full min-h-0 flex-col">
-						<EditorView
-							key={activeTab.path}
-							path={activeTab.path}
-							initialMarkdown={content}
-							extensions={[
-								createImageExtension(activeTab.path),
-								createEmbedExtension({
-									workspacePath: null,
-									filePath: activeTab.path,
-								}),
-							]}
-							onPaste={(editor, event) =>
-								handleImagePaste({ editor, event })
-							}
-							onDrop={(editor, event) =>
-								handleImageDrop({ editor, event })
-							}
-							onLocalChange={handleLocalChange}
-							onSave={handleSave}
-							onOpenExternalLink={(href) =>
-								void desktopApi.openExternalUrl(href)
-							}
-							onOpenWikiLink={() => {}}
-						/>
+						{viewMode === "source" &&
+						hasMarkdownExtension(activeTab.path) ? (
+							<MarkdownSourceEditor
+								key={`${activeTab.path}:source`}
+								path={activeTab.path}
+								initialMarkdown={content}
+								onLocalChange={handleLocalChange}
+								onSave={handleSave}
+							/>
+						) : (
+							<EditorView
+								key={activeTab.path}
+								path={activeTab.path}
+								initialMarkdown={content}
+								extensions={[
+									createImageExtension(activeTab.path),
+									createEmbedExtension({
+										workspacePath: null,
+										filePath: activeTab.path,
+									}),
+								]}
+								onPaste={(editor, event) =>
+									handleImagePaste({ editor, event })
+								}
+								onDrop={(editor, event) =>
+									handleImageDrop({ editor, event })
+								}
+								onLocalChange={handleLocalChange}
+								onSave={handleSave}
+								onOpenExternalLink={(href) =>
+									void desktopApi.openExternalUrl(href)
+								}
+								onOpenWikiLink={() => {}}
+							/>
+						)}
 					</div>
 				)}
 			</section>
+			{activeTab?.path !== "" && (
+				<TerminalPanel
+					cwd={
+						activeTab?.path
+							? (dirname(activeTab.path) ?? undefined)
+							: undefined
+					}
+				/>
+			)}
 		</main>
 	);
 }
