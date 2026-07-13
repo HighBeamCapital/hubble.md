@@ -3,39 +3,30 @@
 
 #![cfg_attr(target_os = "ios", ios::app_delegate::ClassName = "App")]
 
-use std::fs;
-use std::path::Path;
-use serde::Serialize;
-use tauri::Manager;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct FileEntry {
     path: String,
     modified_at: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct FolderEntry {
     path: String,
     modified_at: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct DirectoryListing {
     files: Vec<FileEntry>,
     folders: Vec<FolderEntry>,
 }
 
-fn modified_timestamp(path: &Path) -> u64 {
-    fs::metadata(path)
-        .ok()
-        .and_then(|m| m.modified().ok())
-        .map(|t| {
-            t.duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0)
-        })
-        .unwrap_or(0)
+#[derive(Deserialize, Serialize)]
+struct WorkspaceConfig {
+    version: u32,
+    pinned_notes: Vec<String>,
 }
 
 fn normalize_slashes(path: String) -> String {
@@ -44,29 +35,43 @@ fn normalize_slashes(path: String) -> String {
 
 #[tauri::command]
 async fn list_directory(path: String) -> Result<DirectoryListing, String> {
-    let mut files = Vec::new();
-    let mut folders = Vec::new();
+    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
+    let entries = fs.read_dir(&path, None).await.map_err(|e| e.to_string())?;
+    
+    let (files, folders): (Vec<_>, Vec<_>) = entries.into_iter().partition(|e| {
+        !e.is_dir.unwrap_or(false)
+    });
+    
+    Ok(DirectoryListing {
+        files: files.into_iter().map(|e| FileEntry {
+            path: normalize_slashes(e.path),
+            modified_at: 0,
+        }).collect(),
+        folders: folders.into_iter().map(|e| FolderEntry {
+            path: normalize_slashes(e.path),
+            modified_at: 0,
+        }).collect(),
+    })
+}
 
-    for entry in fs::read_dir(&path).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let path_str = normalize_slashes(path.to_string_lossy().to_string());
-        let modified = modified_timestamp(&path);
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
+    fs.read_file(&path, None).await.map_err(|e| e.to_string())
+}
 
-        if path.is_dir() {
-            folders.push(FolderEntry { path: path_str, modified_at: modified });
-        } else {
-            files.push(FileEntry { path: path_str, modified_at: modified });
-        }
-    }
-
-    Ok(DirectoryListing { files, folders })
+#[tauri::command]
+async fn write_file(path: String, content: String) -> Result<(), String> {
+    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
+    fs.write_file(&path, content).await.map_err(|e| e.to_string())
 }
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri::window::Window::default())
-        .invoke_handler(tauri::generate_handler![list_directory])
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![list_directory, read_file, write_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

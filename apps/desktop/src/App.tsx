@@ -68,6 +68,15 @@ import {
 	workspaceStore,
 } from "./store/state";
 
+// Terminal is desktop-only; iOS omits it
+const isDesktop =
+	typeof navigator === "undefined" || !navigator.userAgent.includes("Mobile");
+
+// Focus sidebar nav - used by keyboard shortcuts
+function focusSidebarNav() {
+	document.querySelector<HTMLElement>(SIDEBAR_NAV_SELECTOR)?.focus();
+}
+
 // Forces editor refresh when underlying TipTap extensions change
 const HMR_REV = (() => {
 	if (!import.meta.hot) return 0;
@@ -75,10 +84,6 @@ const HMR_REV = (() => {
 	hotData.__editorRev = (hotData.__editorRev ?? 0) + 1;
 	return hotData.__editorRev;
 })();
-
-function focusSidebarNav() {
-	document.querySelector<HTMLElement>(SIDEBAR_NAV_SELECTOR)?.focus();
-}
 
 async function copyFilePath(path: string | null) {
 	if (!path) return;
@@ -234,7 +239,7 @@ function App() {
 				if (!path) return;
 				event.preventDefault();
 				await revealPath(path);
-			} else if (keymatch(event, "CmdOrCtrl+Shift+J")) {
+			} else if (isDesktop && keymatch(event, "CmdOrCtrl+Shift+J")) {
 				if (
 					!viewerStore.get().currentPath ||
 					!workspaceStore.get().workspacePath
@@ -256,20 +261,25 @@ function App() {
 	}, [focusedSidebarPath, openFilePicker, openSettings]);
 
 	useEffect(() => {
+		// Update state is desktop-only (no auto-updater on mobile)
+		if (!isDesktop || !desktopApi.getUpdateState) return;
+
 		let active = true;
 		void desktopApi.getUpdateState().then((nextState) => {
 			if (active) setUpdateState(nextState);
 		});
-		const unsubscribe = desktopApi.onUpdateStateChange((nextState) => {
-			setUpdateState(nextState);
-		});
+		const unsubscribe =
+			desktopApi.onUpdateStateChange?.((nextState) => {
+				setUpdateState(nextState);
+			}) ?? (() => {});
 		return () => {
 			active = false;
 			unsubscribe();
 		};
-	}, []);
+	});
 
 	useEffect(() => {
+		if (!desktopApi.onOpenFile) return;
 		const unlisten = desktopApi.onOpenFile((path) => {
 			void loadPath(path);
 		});
@@ -279,21 +289,24 @@ function App() {
 	}, []);
 
 	useEffect(() => {
+		// Menu events are desktop-only (Tauri mobile has no menu bar)
+		if (!isDesktop) return;
+
 		const disposers = [
-			desktopApi.onMenuCreateMarkdownFile(() => void createMarkdownFile()),
-			desktopApi.onMenuCreateHtmlFile(() => void createHtmlFile()),
-			desktopApi.onMenuOpenFile(() => void openFilePicker()),
-			desktopApi.onMenuOpenFolder(() => void openWorkspaceWithSidebar()),
-			desktopApi.onMenuOpenSettings(() => openSettings()),
-			desktopApi.onMenuCopyAsMarkdown(() =>
+			desktopApi.onMenuCreateMarkdownFile?.(() => void createMarkdownFile()),
+			desktopApi.onMenuCreateHtmlFile?.(() => void createHtmlFile()),
+			desktopApi.onMenuOpenFile?.(() => void openFilePicker()),
+			desktopApi.onMenuOpenFolder?.(() => void openWorkspaceWithSidebar()),
+			desktopApi.onMenuOpenSettings?.(() => openSettings()),
+			desktopApi.onMenuCopyAsMarkdown?.(() =>
 				setCopyAsMarkdownRequest((request) => request + 1),
 			),
-			desktopApi.onMenuShowWorkspaceSwitcher(() =>
+			desktopApi.onMenuShowWorkspaceSwitcher?.(() =>
 				setWorkspaceSwitcherOpen(true),
 			),
-			desktopApi.onMenuSyncWorkspace(() => void refreshFiles()),
-			desktopApi.onMenuToggleTerminal(() => toggleTerminal()),
-			desktopApi.onMenuToggleSourceMode(() => {
+			desktopApi.onMenuSyncWorkspace?.(() => void refreshFiles()),
+			desktopApi.onMenuToggleTerminal?.(() => toggleTerminal()),
+			desktopApi.onMenuToggleSourceMode?.(() => {
 				const current = viewerStore.get();
 				if (
 					!current.currentPath ||
@@ -303,20 +316,21 @@ function App() {
 				}
 				setViewerMode(current.viewMode === "source" ? "rich" : "source");
 			}),
-		];
+		].filter((d): d is () => void => typeof d === "function");
 		return () => {
 			for (const dispose of disposers) dispose();
 		};
 	}, [openFilePicker, openSettings]);
 
 	useEffect(() => {
+		if (!isDesktop || !desktopApi.onWindowFocus) return;
 		// Window focus can fire in bursts when switching apps, so debounce the
 		// sidebar refresh and keep the editor interactive while it runs.
 		const dispose = desktopApi.onWindowFocus(() => refreshFilesDebounced());
 		return () => {
 			dispose();
 		};
-	}, []);
+	});
 
 	useEffect(() => {
 		let active = true;
@@ -419,7 +433,7 @@ function App() {
 							</div>
 						)}
 					</div>
-					<TerminalPanel />
+					{isDesktop && <TerminalPanel />}
 				</section>
 			</div>
 			<SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen}>

@@ -1,8 +1,9 @@
 // iOS entry - shares renderer with desktop but uses mobile shell API
-import React from "react";
-import ReactDOM from "react-dom/client";
+
 import App from "@hubble.md/desktop/App";
 import { Toaster } from "@hubble.md/desktop/components/Toaster";
+import React from "react";
+import ReactDOM from "react-dom/client";
 import "@hubble.md/desktop/components/toast.css";
 import "@hubble.md/desktop/index.css";
 
@@ -14,14 +15,17 @@ import "@hubble.md/desktop/index.css";
 
 // Theme init
 const storedTheme = localStorage.getItem("hubble:theme");
-if (storedTheme === "dark" || (!storedTheme && matchMedia("(prefers-color-scheme: dark)").matches)) {
-    document.documentElement.classList.add("dark");
+if (
+	storedTheme === "dark" ||
+	(!storedTheme && matchMedia("(prefers-color-scheme: dark)").matches)
+) {
+	document.documentElement.classList.add("dark");
 }
 
 // Mount shared app
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-        <App />
-        <Toaster />
-    </React.StrictMode>
+	<React.StrictMode>
+		<App />
+		<Toaster />
+	</React.StrictMode>,
 );

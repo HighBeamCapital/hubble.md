@@ -81,15 +81,23 @@ export type ShellApi = {
 
 	// File operations
 	listDirectory(path: string): Promise<DirectoryListing>;
-	listHtmlAppFiles(workspacePath: string, glob: string): Promise<HtmlAppFileEntry[]>;
+	listHtmlAppFiles(
+		workspacePath: string,
+		glob: string,
+	): Promise<HtmlAppFileEntry[]>;
 	readWorkspaceConfig(workspacePath: string): Promise<WorkspaceConfig>;
-	writeWorkspaceConfig(workspacePath: string, config: WorkspaceConfig): Promise<void>;
+	writeWorkspaceConfig(
+		workspacePath: string,
+		config: WorkspaceConfig,
+	): Promise<void>;
 	readFileText(path: string): Promise<string>;
 	writeFileText(path: string, content: string): Promise<void>;
 	createFolder(path: string): Promise<void>;
 	renameFile(fromPath: string, toPath: string): Promise<void>;
 	pathExists(path: string): Promise<boolean>;
-	persistPastedImage(input: PersistPastedImageInput): Promise<PersistPastedImageOutput>;
+	persistPastedImage(
+		input: PersistPastedImageInput,
+	): Promise<PersistPastedImageOutput>;
 	deleteFile(path: string, options?: { recursive?: boolean }): Promise<void>;
 	readBinaryFile(path: string): Promise<number[]>;
 	writeBinaryFile(path: string, bytes: number[]): Promise<void>;
@@ -98,10 +106,16 @@ export type ShellApi = {
 	openFilePicker(options?: { defaultPath?: string }): Promise<string | null>;
 	openFolderPicker(): Promise<string | null>;
 	createFolderPicker(): Promise<string | null>;
-	saveMarkdownFilePicker(options?: { defaultPath?: string }): Promise<string | null>;
+	saveMarkdownFilePicker(options?: {
+		defaultPath?: string;
+	}): Promise<string | null>;
 
 	// Watching (optional on mobile)
-	watchPath(path: string, options: WatchOptions, callback: (paths: string[]) => void): Promise<Unsubscribe>;
+	watchPath(
+		path: string,
+		options: WatchOptions,
+		callback: (paths: string[]) => void,
+	): Promise<Unsubscribe>;
 
 	// External actions
 	openExternalUrl(url: string): Promise<void>;
@@ -123,11 +137,17 @@ export type ShellApi = {
 	onWindowFocus(callback: () => void): Unsubscribe;
 
 	// Terminal - only on desktop
-	terminalStart?(cwd: string, options?: { notePath?: string; initialCommand?: string }): Promise<string>;
+	terminalStart?(
+		cwd: string,
+		options?: { notePath?: string; initialCommand?: string },
+	): Promise<string>;
 	terminalWrite?(sessionId: string, data: string): Promise<void>;
 	terminalResize?(sessionId: string, cols: number, rows: number): Promise<void>;
 	terminalStop?(sessionId: string): Promise<void>;
-	onTerminalData?(sessionId: string, callback: (data: string) => void): Unsubscribe;
+	onTerminalData?(
+		sessionId: string,
+		callback: (data: string) => void,
+	): Unsubscribe;
 	onTerminalExit?(sessionId: string, callback: () => void): Unsubscribe;
 
 	// Updates - only on desktop (App Store on iOS)
