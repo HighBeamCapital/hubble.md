@@ -15,7 +15,8 @@ fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| e.to_string())
 }
 
-pub fn run() {
+#[tauri::mobile_entry_point]
+fn mobile_entry() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![list_directory, read_file, write_file])
         .run(tauri::generate_context!())
