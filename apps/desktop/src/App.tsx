@@ -68,9 +68,8 @@ import {
 	workspaceStore,
 } from "./store/state";
 
-// Terminal is desktop-only; iOS omits it
-const isDesktop =
-	typeof navigator === "undefined" || !navigator.userAgent.includes("Mobile");
+// Terminal is desktop-only; iOS uses Tauri and lacks terminal support
+const isDesktop = !("__TAURI__" in window);
 
 // Focus sidebar nav - used by keyboard shortcuts
 function focusSidebarNav() {
