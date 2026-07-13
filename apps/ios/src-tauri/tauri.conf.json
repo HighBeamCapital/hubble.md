@@ -5,5 +5,15 @@
 	"identifier": "md.hubble.app",
 	"build": {
 		"frontendDist": "../dist"
-	}
+	},
+	"app": [
+		{
+			"label": "main",
+			"url": "index.html",
+			"webview": {
+				"url": "index.html",
+				"visible": false
+			}
+		}
+	]
 }
