@@ -1014,12 +1014,29 @@ function StandaloneApp() {
 				)}
 				{status === "ready" && activeTab && (
 					<div className="flex h-full min-h-0 flex-col">
-						<MarkdownSourceEditor
+						<EditorView
 							key={activeTab.path}
 							path={activeTab.path}
 							initialMarkdown={content}
+							extensions={[
+								createImageExtension(activeTab.path),
+								createEmbedExtension({
+									workspacePath: null,
+									filePath: activeTab.path,
+								}),
+							]}
+							onPaste={(editor, event) =>
+								handleImagePaste({ editor, event })
+							}
+							onDrop={(editor, event) =>
+								handleImageDrop({ editor, event })
+							}
 							onLocalChange={handleLocalChange}
 							onSave={handleSave}
+							onOpenExternalLink={(href) =>
+								void desktopApi.openExternalUrl(href)
+							}
+							onOpenWikiLink={() => {}}
 						/>
 					</div>
 				)}
