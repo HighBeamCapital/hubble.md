@@ -1,24 +1,29 @@
-// Hubble iOS entry point
-// Uses shared UI components but with mobile-specific adjustments
-
+// Hubble iOS - Tauri mobile entry point
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "@hubble.md/desktop/App";
-import { Toaster } from "@hubble.md/desktop/components/Toaster";
 
-// Theme init (iOS supports dark mode)
+// Theme init
 const storedTheme = localStorage.getItem("hubble:theme");
 if (storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
     document.documentElement.classList.add("dark");
 }
 
-// Signal mobile platform to renderer
-window.__TAURI__ = true;
+// Import shared UI components (will create mobile App later)
+import { EditorView, MarkdownSourceEditor } from "@hubble.md/ui";
 
-// Mount app
+function MobileApp() {
+    return (
+        <main className="flex h-dvh flex-col bg-background text-foreground">
+            <div className="flex-1 p-4">
+                <h1 className="text-2xl font-bold mb-4">Hubble for iOS</h1>
+                <p className="text-muted-foreground">iOS version in development</p>
+            </div>
+        </main>
+    );
+}
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
-        <App />
-        <Toaster />
+        <MobileApp />
     </React.StrictMode>
 );

@@ -4,16 +4,18 @@
   "version": "0.1.17",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev --target ios",
-    "build": "tauri build --target ios",
+    "dev": "tauri dev",
+    "build": "tauri build",
     "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
-    "@tauri-apps/plugin-shell": "^2",
-    "@hubble.md/ui": "workspace:*"
+    "@hubble.md/ui": "workspace:*",
+    "@hubble.md/editor": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
