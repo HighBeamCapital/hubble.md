@@ -1,5 +1,5 @@
 // Tauri iOS entry point - file system bridge for sandboxed iOS
-// Commands use tauri-plugin-fs for iOS sandbox permissions
+// Commands use std::fs with granted paths via Tauri's security model
 
 use serde::Serialize;
 
@@ -25,19 +25,18 @@ fn normalize_slashes(path: String) -> String {
     path.replace('\\', "/")
 }
 
-// Directory listing command - to be implemented with tauri-plugin-fs APIs
+// Directory listing command
 #[tauri::command]
 fn list_directory(path: String) -> Result<DirectoryListing, String> {
-    // iOS: use std::fs within granted sandbox, or plugin invoke
     let mut files = Vec::new();
     let mut folders = Vec::new();
     
     for entry in std::fs::read_dir(&path).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let path_str = normalize_slashes(path.to_string_lossy().to_string());
+        let entry_path = entry.path();
+        let path_str = normalize_slashes(entry_path.to_string_lossy().to_string());
         
-        if path.is_dir() {
+        if entry_path.is_dir() {
             folders.push(FolderEntry { path: path_str, modified_at: 0 });
         } else {
             files.push(FileEntry { path: path_str, modified_at: 0 });
@@ -61,9 +60,6 @@ fn write_file(path: String, content: String) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![list_directory, read_file, write_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
