@@ -38,7 +38,7 @@ packages/sync-backend/convex/*.js.map
 
 # tauri / rust build artifacts
 **/src-tauri/target/
-**/src-tauri/gen/schemas/
+**/src-tauri/gen/
 
 # OS / editors
 .DS_Store
