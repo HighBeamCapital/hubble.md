@@ -901,6 +901,13 @@ function StandaloneApp() {
 		const currentContent =
 			fileContentRef.current.get(activeTab.path) ?? content;
 
+		// Guard: prevent writing a file path as content (corruption from old bug)
+		if (currentContent.startsWith("/") && !currentContent.includes("\n")) {
+			console.error("[standalone:save] BLOCKED: content looks like a file path, not file content", currentContent);
+			toast.error("Save blocked: content appears to be a file path, not file content. Please re-open the file.");
+			return;
+		}
+
 		if (activeTab.path === "") {
 			const stem = filenameFromMarkdown(currentContent);
 			if (stem) {
@@ -944,6 +951,19 @@ function StandaloneApp() {
 			});
 		}
 	}, [activeTab, content, open]);
+
+	const createNewDocument = useCallback(async () => {
+		const selected = await desktopApi.saveMarkdownFilePicker({});
+		if (!selected) return;
+		try {
+			await desktopApi.writeFileText(selected, "");
+			open(selected);
+		} catch (err) {
+			toast.error("Failed to create file", {
+				description: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}, [open]);
 
 	const handleOpenFile = useCallback(async () => {
 		const selected = await desktopApi.openFilePicker({});
@@ -1003,7 +1023,7 @@ function StandaloneApp() {
 			}
 			if (mod && e.key === "n") {
 				e.preventDefault();
-				openUntitledTab();
+				void createNewDocument();
 			}
 			if (mod && e.key === "s") {
 				e.preventDefault();
@@ -1030,7 +1050,7 @@ function StandaloneApp() {
 		}
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [handleOpenFile, handleSave, activeTab, close, viewMode]);
+	}, [handleOpenFile, handleSave, createNewDocument, activeTab, close, viewMode]);
 
 	return (
 		<main className="flex h-dvh flex-col bg-background text-foreground">

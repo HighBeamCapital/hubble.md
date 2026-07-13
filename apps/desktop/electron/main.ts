@@ -1147,11 +1147,12 @@ async function createWindow() {
 
 	// On Linux/Windows the menu bar is hidden by the custom title bar, so menu
 	// accelerators (incl. DevTools) don't fire. Bind the DevTools toggle directly.
-	if (isDev && process.platform !== "darwin") {
+	// Also enables DevTools in production builds for debugging.
+	{
 		window.webContents.on("before-input-event", (_event, input) => {
 			if (input.type !== "keyDown") return;
 			const key = input.key.toLowerCase();
-			if (key === "f12" || (input.control && input.shift && key === "i")) {
+			if (key === "f12" || (input.control && input.shift && key === "i") || (input.meta && input.alt && key === "i")) {
 				window.webContents.toggleDevTools();
 			}
 		});
@@ -1256,6 +1257,14 @@ async function createStandaloneWindow(filePath?: string) {
 	window.webContents.once("did-fail-load", () => {
 		if (window.isDestroyed()) return;
 		window.show();
+	});
+
+	window.webContents.on("before-input-event", (_event, input) => {
+		if (input.type !== "keyDown") return;
+		const key = input.key.toLowerCase();
+		if (key === "f12" || (input.control && input.shift && key === "i") || (input.meta && input.alt && key === "i")) {
+			window.webContents.toggleDevTools();
+		}
 	});
 
 	window.on("resize", () => {
