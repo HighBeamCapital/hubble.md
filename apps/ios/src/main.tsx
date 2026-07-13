@@ -1,24 +1,24 @@
-// iOS entry - injects mobile shell API into shared desktop renderer
+// Hubble iOS entry point
+// Uses shared UI components but with mobile-specific adjustments
 
-import App from "@hubble.md/desktop/App";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import App from "@hubble.md/desktop/App";
+import { Toaster } from "@hubble.md/desktop/components/Toaster";
 
-// Theme init
+// Theme init (iOS supports dark mode)
 const storedTheme = localStorage.getItem("hubble:theme");
-if (
-	storedTheme === "dark" ||
-	(!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
-) {
-	document.documentElement.classList.add("dark");
+if (storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    document.documentElement.classList.add("dark");
 }
 
-// Mobile shell API (will be replaced with Tauri invoke when plugins are ready)
-// This allows the desktop App to detect __TAURI__ and disable terminal
-window.__TAURI__ = true; // Signal mobile mode to renderer
+// Signal mobile platform to renderer
+window.__TAURI__ = true;
 
+// Mount app
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-	<React.StrictMode>
-		<App />
-	</React.StrictMode>,
+    <React.StrictMode>
+        <App />
+        <Toaster />
+    </React.StrictMode>
 );
