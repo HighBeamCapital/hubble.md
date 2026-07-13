@@ -887,7 +887,7 @@ function StandaloneApp() {
 	}, [activeTab]);
 
 	const handleLocalChange = useCallback(
-		(newContent: string) => {
+		(_path: string, newContent: string) => {
 			setContent(newContent);
 			if (activeTab) {
 				fileContentRef.current.set(activeTab.path, newContent);
