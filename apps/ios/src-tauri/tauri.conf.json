@@ -1,0 +1,12 @@
+{
+	"$schema": "../../node_modules/@tauri-apps/cli/schema.json",
+	"productName": "Hubble",
+	"version": "0.1.17",
+	"identifier": "md.hubble.app",
+	"build": {
+		"beforeDevCommand": "pnpm --filter @hubble.md/desktop dev",
+		"beforeBuildCommand": "pnpm --filter @hubble.md/desktop build",
+		"devUrl": "http://localhost:1420",
+		"frontendDist": "../../desktop/dist"
+	}
+}

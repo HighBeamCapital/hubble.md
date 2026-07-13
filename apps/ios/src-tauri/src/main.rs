@@ -1,8 +1,7 @@
 // Tauri iOS entry point - file system bridge for sandboxed iOS
-// Users grant access via document picker; we read/write within granted locations
+// Commands use tauri-plugin-fs for iOS sandbox permissions
 
 use serde::Serialize;
-use tauri::Manager;
 
 #[derive(Serialize, Clone)]
 struct FileEntry {
@@ -26,53 +25,38 @@ fn normalize_slashes(path: String) -> String {
     path.replace('\\', "/")
 }
 
-// Read directory listing using tauri-plugin-fs
+// Directory listing command - to be implemented with tauri-plugin-fs APIs
 #[tauri::command]
-async fn list_directory(path: String) -> Result<DirectoryListing, String> {
-    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
-    let entries = fs
-        .read_dir(&path, None)
-        .await
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
-
-    let (files, folders): (Vec<_>, Vec<_>) = entries
-        .into_iter()
-        .partition(|e| !e.is_dir.unwrap_or(false));
-
-    Ok(DirectoryListing {
-        files: files
-            .into_iter()
-            .map(|e| FileEntry {
-                path: normalize_slashes(e.path),
-                modified_at: 0, // iOS sandbox limits metadata access
-            })
-            .collect(),
-        folders: folders
-            .into_iter()
-            .map(|e| FolderEntry {
-                path: normalize_slashes(e.path),
-                modified_at: 0,
-            })
-            .collect(),
-    })
+fn list_directory(path: String) -> Result<DirectoryListing, String> {
+    // iOS: use std::fs within granted sandbox, or plugin invoke
+    let mut files = Vec::new();
+    let mut folders = Vec::new();
+    
+    for entry in std::fs::read_dir(&path).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let path_str = normalize_slashes(path.to_string_lossy().to_string());
+        
+        if path.is_dir() {
+            folders.push(FolderEntry { path: path_str, modified_at: 0 });
+        } else {
+            files.push(FileEntry { path: path_str, modified_at: 0 });
+        }
+    }
+    
+    Ok(DirectoryListing { files, folders })
 }
 
-// Read file content
+// Read file command
 #[tauri::command]
-async fn read_file(path: String) -> Result<String, String> {
-    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
-    fs.read_file(&path, None)
-        .await
-        .map_err(|e| e.to_string())
+fn read_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
-// Write file content
+// Write file command
 #[tauri::command]
-async fn write_file(path: String, content: String) -> Result<(), String> {
-    let fs = tauri::Manager::fs(&tauri::AppHandle::default());
-    fs.write_file(&path, content)
-        .await
-        .map_err(|e| e.to_string())
+fn write_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| e.to_string())
 }
 
 fn main() {
