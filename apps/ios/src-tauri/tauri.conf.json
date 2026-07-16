@@ -6,12 +6,13 @@
 	"build": {
 		"frontendDist": "../dist"
 	},
-	"app": [
-		{
-			"main": "index.html",
-			"security": {
-				"csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' 'unsafe-hashes'; img-src 'self' data:; connect-src 'self'"
+	"app": {
+		"windows": [
+			{
+				"url": "../dist/index.html",
+				"visible": true,
+				"title": "Hubble"
 			}
-		}
-	]
+		]
+	}
 }

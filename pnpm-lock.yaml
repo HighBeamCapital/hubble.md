@@ -168,6 +168,9 @@ importers:
       '@hubble.md/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@simplestack/store':
+        specifier: ^0.7.5
+        version: 0.7.5(react@19.2.4)
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.1
@@ -177,6 +180,12 @@ importers:
       '@tauri-apps/plugin-fs':
         specifier: ^2
         version: 2.5.1
+      '@tauri-apps/plugin-shell':
+        specifier: ^2
+        version: 2.3.5
+      '@tiptap/pm':
+        specifier: ^3.3.0
+        version: 3.20.0
       react:
         specifier: ^19.1.0
         version: 19.2.4
@@ -308,6 +317,31 @@ importers:
       vite:
         specifier: ^7.0.4
         version: 7.3.5(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.9.0)
+
+  packages/app-core:
+    dependencies:
+      '@hubble.md/convex-client':
+        specifier: workspace:*
+        version: link:../convex-client
+      '@hubble.md/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@hubble.md/sync':
+        specifier: workspace:*
+        version: link:../sync
+      '@hubble.md/sync-backend':
+        specifier: workspace:*
+        version: link:../sync-backend
+      '@simplestack/store':
+        specifier: ^0.7.5
+        version: 0.7.5(react@19.2.4)
+      convex:
+        specifier: ^1.21.0
+        version: 1.39.1(react@19.2.4)
+    devDependencies:
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
 
   packages/cli:
     dependencies:
@@ -2298,6 +2332,9 @@ packages:
 
   '@tauri-apps/plugin-fs@2.5.1':
     resolution: {integrity: sha512-9Lz+Jopp6QyeEWhlpkMx4R/+P9HgR+AVAI4vOZhlT8Xaymtz8iVI/Ov984/XTqgJz/5gz5NretqPB/XEMS3NhQ==}
+
+  '@tauri-apps/plugin-shell@2.3.5':
+    resolution: {integrity: sha512-jewtULhiQ7lI7+owCKAjc8tYLJr92U16bPOeAa472LHJdgaibLP83NcfAF2e+wkEcA53FxKQAZ7byDzs2eeizg==}
 
   '@tiptap/core@3.20.0':
     resolution: {integrity: sha512-aC9aROgia/SpJqhsXFiX9TsligL8d+oeoI8W3u00WI45s0VfsqjgeKQLDLF7Tu7hC+7F02teC84SAHuup003VQ==}
@@ -7370,6 +7407,10 @@ snapshots:
       '@tauri-apps/api': 2.11.1
 
   '@tauri-apps/plugin-fs@2.5.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.1
+
+  '@tauri-apps/plugin-shell@2.3.5':
     dependencies:
       '@tauri-apps/api': 2.11.1
 
