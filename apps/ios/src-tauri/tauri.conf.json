@@ -9,7 +9,7 @@
 	"app": {
 		"windows": [
 			{
-				"url": "../dist/index.html",
+				"url": "index.html",
 				"visible": true,
 				"title": "Hubble"
 			}

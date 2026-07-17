@@ -17,12 +17,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	</React.StrictMode>,
 );
 
-import("./tauriApi")
-	.then(() =>
-		import("@tauri-apps/api/webviewWindow").then(
-			({ getCurrentWebviewWindow }) => {
-				getCurrentWebviewWindow?.()?.show();
-			},
-		),
-	)
+import("@tauri-apps/api/webviewWindow")
+	.then(({ getCurrentWebviewWindow }) => {
+		getCurrentWebviewWindow?.()?.show();
+	})
 	.catch(() => {});

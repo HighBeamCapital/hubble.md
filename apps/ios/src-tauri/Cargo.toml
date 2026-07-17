@@ -11,7 +11,8 @@ crate-type = ["staticlib", "cdylib", "lib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["wry"] }
+tauri = { version = "2", features = ["wry", "custom-protocol"] }
+tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }

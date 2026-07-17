@@ -1,8 +1,47 @@
 mod pick_folder;
 
 use serde::{Deserialize, Serialize};
+use std::ffi::CStr;
 use std::fs;
 use std::path::Path;
+use std::ptr;
+
+use objc::runtime::{Class, Object};
+use objc::{class, msg_send, sel, sel_impl};
+
+#[tauri::command]
+fn start_scoped_access(path: String) -> Result<(), String> {
+    unsafe {
+        let ns_url_cls = Class::get("NSURL").ok_or("NSURL class not found")?;
+        let ns_str_cls = Class::get("NSString").ok_or("NSString class not found")?;
+
+        let utf8 = std::ffi::CString::new(path).map_err(|e| e.to_string())?;
+        let ns_str: *mut Object = msg_send![ns_str_cls, stringWithUTF8String: utf8.as_ptr()];
+        let ns_url: *mut Object = msg_send![ns_url_cls, fileURLWithPath: ns_str];
+
+        let result: bool = msg_send![ns_url, startAccessingSecurityScopedResource];
+        if result {
+            Ok(())
+        } else {
+            Err("startAccessingSecurityScopedResource returned false".into())
+        }
+    }
+}
+
+#[tauri::command]
+fn stop_scoped_access(path: String) -> Result<(), String> {
+    unsafe {
+        let ns_url_cls = Class::get("NSURL").ok_or("NSURL class not found")?;
+        let ns_str_cls = Class::get("NSString").ok_or("NSString class not found")?;
+
+        let utf8 = std::ffi::CString::new(path).map_err(|e| e.to_string())?;
+        let ns_str: *mut Object = msg_send![ns_str_cls, stringWithUTF8String: utf8.as_ptr()];
+        let ns_url: *mut Object = msg_send![ns_url_cls, fileURLWithPath: ns_str];
+
+        let _: () = msg_send![ns_url, stopAccessingSecurityScopedResource];
+        Ok(())
+    }
+}
 
 #[derive(Serialize)]
 struct DirectoryEntry {
@@ -108,12 +147,6 @@ fn resolve_path(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn real_path(path: String) -> Result<String, String> {
-    let canonical = fs::canonicalize(&path).map_err(|e| e.to_string())?;
-    Ok(canonical.to_string_lossy().to_string())
-}
-
-#[tauri::command]
 fn get_launch_file_path() -> Result<Option<String>, String> {
     Ok(None)
 }
@@ -126,6 +159,7 @@ fn get_launch_workspace_path() -> Result<Option<String>, String> {
 #[tauri::mobile_entry_point]
 fn mobile_entry() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
@@ -139,10 +173,11 @@ fn mobile_entry() {
             read_binary_file,
             write_binary_file,
             resolve_path,
-            real_path,
             get_launch_file_path,
             get_launch_workspace_path,
             pick_folder::pick_folder,
+            start_scoped_access,
+            stop_scoped_access,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

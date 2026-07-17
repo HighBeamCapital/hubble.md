@@ -13,6 +13,7 @@
 		"fs:allow-remove",
 		"fs:allow-rename",
 		"fs:allow-read-dir",
+		"dialog:default",
 		"shell:default",
 		"shell:allow-open"
 	]
