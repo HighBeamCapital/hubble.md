@@ -445,6 +445,38 @@ export async function openWorkspace(path?: string) {
 	clearViewer();
 }
 
+export function removeWorkspace(path: string) {
+	const current = workspaceStore.get();
+	const nextRecent = current.recentWorkspaces.filter((p) => p !== path);
+	const nextLastOpened = { ...current.lastOpenedPaths };
+	delete nextLastOpened[path];
+
+	if (current.workspacePath === path) {
+		workspaceStore.set((state) => ({
+			...state,
+			workspacePath: nextRecent[0] ?? null,
+			recentWorkspaces: nextRecent,
+			lastOpenedPaths: nextLastOpened,
+			files: [],
+			pinnedNotes: [],
+		}));
+
+		const next = workspaceStore.get();
+		if (next.workspacePath) {
+			void refreshFiles(next.workspacePath);
+			void loadPinnedNotes(next.workspacePath);
+		} else {
+			clearViewer();
+		}
+	} else {
+		workspaceStore.set((state) => ({
+			...state,
+			recentWorkspaces: nextRecent,
+			lastOpenedPaths: nextLastOpened,
+		}));
+	}
+}
+
 export function updateEditorContent(path: string, content: string) {
 	const current = viewerStore.get();
 	if (current.currentPath === path && current.content === content) return;

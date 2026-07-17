@@ -9,11 +9,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
-- Edit a note's raw Markdown with source mode: toggle from the note's ⋯ menu or press Cmd+Option+U. [#144](https://github.com/bholmesdev/hubble.md/pull/144)
-
 ### Changed
 
 ### Fixed
+
+## [0.1.18] - 2026-07-16
+
+### Added
+
+- Remove workspaces from the sidebar switcher. Hover any workspace in the switcher menu and click the × to drop it from the list. If the removed workspace was active, Hubble switches to the next recent one.
 
 ## [0.1.17] - 2026-07-06
 

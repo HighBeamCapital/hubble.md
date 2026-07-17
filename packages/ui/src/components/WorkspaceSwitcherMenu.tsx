@@ -1,21 +1,29 @@
 import { Menu } from "@base-ui/react/menu";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import MingcuteCheckLine from "~icons/mingcute/check-line";
+import MingcuteCloseLine from "~icons/mingcute/close-line";
 import MingcuteSelectorVerticalLine from "~icons/mingcute/selector-vertical-line";
 import { cn } from "../lib/utils";
+
+type ItemProps = Menu.Item.Props & {
+	icon?: ReactNode;
+	selected?: boolean;
+	onRemove?: (e: MouseEvent) => void;
+};
 
 function Item({
 	children,
 	icon,
 	selected,
+	onRemove,
 	className,
 	...props
-}: Menu.Item.Props & { icon?: ReactNode; selected?: boolean }) {
+}: ItemProps) {
 	return (
 		<Menu.Item
 			{...props}
 			className={cn(
-				"flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-start text-[11px] text-sidebar-foreground outline-hidden select-none data-highlighted:bg-accent",
+				"group/item flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-start text-[11px] text-sidebar-foreground outline-hidden select-none data-highlighted:bg-accent",
 				className,
 			)}
 		>
@@ -26,7 +34,26 @@ function Item({
 			) : (
 				<span className="size-3 shrink-0" />
 			)}
-			{children}
+			{onRemove ? (
+				<>
+					<span className="flex-1 truncate">{children}</span>
+					<button
+						type="button"
+						className="ms-auto shrink-0 rounded-sm p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-muted-foreground group-data-[highlighted]:opacity-100"
+						onPointerDown={(e) => {
+							e.stopPropagation();
+						}}
+						onClick={(e) => {
+							e.stopPropagation();
+							onRemove(e);
+						}}
+					>
+						<MingcuteCloseLine className="size-3" />
+					</button>
+				</>
+			) : (
+				children
+			)}
 		</Menu.Item>
 	);
 }
@@ -35,7 +62,7 @@ function Separator() {
 	return <Menu.Separator className="my-1 h-px bg-border" />;
 }
 
-export function WorkspaceSwitcherMenu({
+function WorkspaceSwitcherMenuRoot({
 	label,
 	title,
 	open,
@@ -70,5 +97,7 @@ export function WorkspaceSwitcherMenu({
 	);
 }
 
-WorkspaceSwitcherMenu.Item = Item;
-WorkspaceSwitcherMenu.Separator = Separator;
+export const WorkspaceSwitcherMenu = Object.assign(WorkspaceSwitcherMenuRoot, {
+	Item,
+	Separator,
+});
