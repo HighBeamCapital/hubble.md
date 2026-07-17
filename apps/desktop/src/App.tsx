@@ -9,12 +9,13 @@ import {
 } from "@hubble.md/ui";
 import { useStoreValue } from "@simplestack/store/react";
 import { keymatch } from "keymatch";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import MingcutePencilLine from "~icons/mingcute/pencil-line";
 import { HtmlAppEmptyState } from "./components/HtmlAppEmptyState";
 import { SettingsDialog, SettingsSection } from "./components/SettingsDialog";
 import { Sidebar } from "./components/Sidebar";
+import { TabBar } from "./components/TabBar";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { Toolbar } from "./components/Toolbar";
 import {
@@ -31,6 +32,7 @@ import { createImageExtension } from "./editor/ImageExtension";
 import { createHtmlFile, createMarkdownFile } from "./fileActions";
 import { copyText } from "./lib/clipboard";
 import {
+	dirname,
 	hasHtmlExtension,
 	hasMarkdownExtension,
 	relativeWorkspacePath,
@@ -67,6 +69,15 @@ import {
 	workspacePathStore,
 	workspaceStore,
 } from "./store/state";
+import {
+	getInitialFilePath,
+	openTab,
+	openUntitledTab,
+	renameTab,
+	setInitialFilePath,
+	useActiveTab,
+	useTabs,
+} from "./store/tabs";
 
 // Terminal is desktop-only; iOS uses Tauri and lacks terminal support
 const isDesktop = !("__TAURI__" in window);
@@ -84,6 +95,18 @@ const HMR_REV = (() => {
 	return hotData.__editorRev;
 })();
 
+function filenameFromMarkdown(content: string): string | null {
+	const match = content.match(/^#\s+(.+)$/m);
+	if (!match) return null;
+	return match[1]
+		.toLowerCase()
+		.replace(/[^a-z0-9\s-]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "")
+		.slice(0, 80);
+}
+
 async function copyFilePath(path: string | null) {
 	if (!path) return;
 	await copyText(path, "File path");
@@ -99,11 +122,34 @@ async function revealPath(path: string | null) {
 	}
 }
 
+function useIsFullScreen() {
+	const [isFullScreen, setIsFullScreen] = useState(false);
+	useEffect(() => {
+		void desktopApi.getFullScreen().then(setIsFullScreen);
+		return desktopApi.onFullScreenChange(setIsFullScreen);
+	}, []);
+	return isFullScreen;
+}
+
 function App() {
+	const isStandalone = useMemo(
+		() => new URLSearchParams(window.location.search).get("standalone") === "1",
+		[],
+	);
+
+	if (isStandalone) {
+		return <StandaloneApp />;
+	}
+
+	return <WorkspaceApp />;
+}
+
+function WorkspaceApp() {
 	const state = useStoreValue(viewerStore);
 	const workspacePath = useStoreValue(workspacePathStore);
 	const sidebarOpen = useStoreValue(sidebarOpenStore);
 	const hasWorkspace = workspacePath !== null;
+	const isFullScreen = useIsFullScreen();
 	const [scrollContainerEl, setScrollContainerEl] =
 		useState<HTMLDivElement | null>(null);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -115,6 +161,9 @@ function App() {
 		null,
 	);
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
+
+	const { tabs, activeIndex, close, switchTo } = useTabs();
+	const activeTab = useActiveTab();
 
 	const readyVersion =
 		updateState?.status === "ready"
@@ -192,9 +241,26 @@ function App() {
 			undefined;
 		const selected = await desktopApi.openFilePicker({ defaultPath });
 		if (typeof selected === "string") {
+			openTab(selected);
 			await loadPath(selected);
 		}
 	}, []);
+
+	const handleTabSwitch = useCallback(
+		(index: number) => {
+			switchTo(index);
+			const tab = tabs[index];
+			if (tab && tab.path !== "") void loadPath(tab.path);
+		},
+		[tabs, switchTo],
+	);
+
+	const handleTabClose = useCallback(
+		(path: string) => {
+			close(path);
+		},
+		[close],
+	);
 
 	useEffect(() => {
 		const currentPath = state.currentPath;
@@ -214,7 +280,23 @@ function App() {
 		const onKeyDown = async (event: KeyboardEvent) => {
 			if (keymatch(event, "CmdOrCtrl+N")) {
 				event.preventDefault();
-				await createMarkdownFile();
+				const prevUntitled = activeTab?.path === "" ? activeTab : null;
+				const created = await createMarkdownFile();
+				if (prevUntitled && created) {
+					renameTab("", created);
+				}
+			} else if (keymatch(event, "CmdOrCtrl+T")) {
+				event.preventDefault();
+				openUntitledTab();
+			} else if (keymatch(event, "CmdOrCtrl+W")) {
+				event.preventDefault();
+				if (activeTab) close(activeTab.path);
+			} else if (keymatch(event, "CmdOrCtrl+Alt+ArrowLeft")) {
+				event.preventDefault();
+				if (activeIndex > 0) handleTabSwitch(activeIndex - 1);
+			} else if (keymatch(event, "CmdOrCtrl+Alt+ArrowRight")) {
+				event.preventDefault();
+				if (activeIndex < tabs.length - 1) handleTabSwitch(activeIndex + 1);
 			} else if (keymatch(event, "CmdOrCtrl+,")) {
 				event.preventDefault();
 				openSettings();
@@ -257,7 +339,16 @@ function App() {
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [focusedSidebarPath, openFilePicker, openSettings]);
+	}, [
+		focusedSidebarPath,
+		openFilePicker,
+		openSettings,
+		activeTab,
+		activeIndex,
+		tabs.length,
+		close,
+		handleTabSwitch,
+	]);
 
 	useEffect(() => {
 		// Update state is desktop-only (no auto-updater on mobile)
@@ -280,6 +371,7 @@ function App() {
 	useEffect(() => {
 		if (!desktopApi.onOpenFile) return;
 		const unlisten = desktopApi.onOpenFile((path) => {
+			openTab(path);
 			void loadPath(path);
 		});
 		return () => {
@@ -375,6 +467,16 @@ function App() {
 				scrollContainer={scrollContainerEl}
 				showSidebarBadge={!sidebarOpen && showUpdateCallout}
 			/>
+			{tabs.length > 0 && (
+				<TabBar
+					tabs={tabs}
+					activeIndex={activeIndex}
+					onSwitch={handleTabSwitch}
+					onClose={handleTabClose}
+					onOpen={() => void openFilePicker()}
+					platformInset={!isFullScreen}
+				/>
+			)}
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<Sidebar
 					onFocusedPathChange={setFocusedSidebarPath}
@@ -398,9 +500,15 @@ function App() {
 						{state.status === "error" && (
 							<p>{state.error ?? "Failed to open file."}</p>
 						)}
+						{activeTab?.path === "" && (
+							<div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+								⌘+N For New
+							</div>
+						)}
 						{state.status !== "loading" &&
 							state.status !== "error" &&
-							!state.currentPath && (
+							!state.currentPath &&
+							activeTab?.path !== "" && (
 								<div className="flex h-full items-center justify-center p-6">
 									{hasWorkspace ? (
 										<Button onClick={() => void openFilePicker()}>
@@ -681,3 +789,363 @@ function MarkdownEditor({
 }
 
 export default App;
+
+function StandaloneApp() {
+	const isFullScreen = useIsFullScreen();
+	const params = useMemo(() => new URLSearchParams(window.location.search), []);
+	const initialFile = useMemo(() => {
+		const raw = params.get("file");
+		if (raw && !getInitialFilePath()) {
+			setInitialFilePath(raw);
+		}
+		return getInitialFilePath();
+	}, [params]);
+
+	const { tabs, activeIndex, open, close, switchTo } = useTabs();
+	const activeTab = useActiveTab();
+	const viewMode = useStoreValue(viewerStore).viewMode;
+	const [content, setContent] = useState<string>("");
+	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+		"idle",
+	);
+	const [error, setError] = useState<string | null>(null);
+	const fileContentRef = useRef<Map<string, string>>(new Map());
+
+	useEffect(() => {
+		if (tabs.length === 0) {
+			if (initialFile) {
+				open(initialFile);
+			} else {
+				openUntitledTab();
+			}
+		}
+	}, [initialFile, tabs.length, open]);
+
+	useEffect(() => {
+		if (!activeTab) {
+			setContent("");
+			setStatus("idle");
+			return;
+		}
+
+		if (activeTab.path === "") {
+			setContent("");
+			setStatus("idle");
+			return;
+		}
+
+		const filePath = activeTab.path;
+		const cached = fileContentRef.current.get(filePath);
+		if (cached !== undefined) {
+			setContent(cached);
+			setStatus("ready");
+			return;
+		}
+
+		let disposed = false;
+		setStatus("loading");
+		setError(null);
+
+		void desktopApi
+			.readFileText(filePath)
+			.then((text) => {
+				if (disposed) return;
+				fileContentRef.current.set(filePath, text);
+				setContent(text);
+				setStatus("ready");
+			})
+			.catch((err) => {
+				if (disposed) return;
+				setStatus("error");
+				setError(err instanceof Error ? err.message : "Failed to open file.");
+			});
+
+		return () => {
+			disposed = true;
+		};
+	}, [activeTab]);
+
+	useEffect(() => {
+		if (!activeTab || activeTab.path === "") return;
+		const filePath = activeTab.path;
+		let disposed = false;
+		let unwatch: (() => void) | null = null;
+
+		const handleChange = async (paths: string[]) => {
+			if (!paths.includes(filePath)) return;
+			try {
+				const nextContent = await desktopApi.readFileText(filePath);
+				if (disposed) return;
+				fileContentRef.current.set(filePath, nextContent);
+				setContent(nextContent);
+			} catch {
+				// File may have been deleted; ignore.
+			}
+		};
+
+		const setup = async () => {
+			unwatch = await desktopApi.watchPath(
+				filePath,
+				{ recursive: false },
+				(paths) => void handleChange(paths),
+			);
+			if (disposed && unwatch) unwatch();
+		};
+
+		void setup();
+		return () => {
+			disposed = true;
+			if (unwatch) unwatch();
+		};
+	}, [activeTab]);
+
+	const handleLocalChange = useCallback(
+		(_path: string, newContent: string) => {
+			setContent(newContent);
+			if (activeTab) {
+				fileContentRef.current.set(activeTab.path, newContent);
+			}
+		},
+		[activeTab],
+	);
+
+	const handleSave = useCallback(async () => {
+		if (!activeTab) return;
+		const currentContent =
+			fileContentRef.current.get(activeTab.path) ?? content;
+
+		// Guard: prevent writing a file path as content (corruption from old bug)
+		if (currentContent.startsWith("/") && !currentContent.includes("\n")) {
+			console.error(
+				"[standalone:save] BLOCKED: content looks like a file path, not file content",
+				currentContent,
+			);
+			toast.error(
+				"Save blocked: content appears to be a file path, not file content. Please re-open the file.",
+			);
+			return;
+		}
+
+		if (activeTab.path === "") {
+			const stem = filenameFromMarkdown(currentContent);
+			if (stem) {
+				const slug = stem
+					.toLowerCase()
+					.replace(/[^a-z0-9\s-]/g, "")
+					.replace(/\s+/g, "-")
+					.replace(/-+/g, "-")
+					.replace(/^-|-$/g, "")
+					.slice(0, 80);
+				const dir = await desktopApi.resolvePath("~/Desktop");
+				const path = `${dir}/${slug}.md`;
+				try {
+					await desktopApi.writeFileText(path, currentContent);
+					open(path);
+				} catch (err) {
+					toast.error("Failed to save", {
+						description: err instanceof Error ? err.message : String(err),
+					});
+				}
+			} else {
+				const selected = await desktopApi.saveMarkdownFilePicker({});
+				if (!selected) return;
+				try {
+					await desktopApi.writeFileText(selected, currentContent);
+					open(selected);
+				} catch (err) {
+					toast.error("Failed to save", {
+						description: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+			return;
+		}
+
+		try {
+			await desktopApi.writeFileText(activeTab.path, currentContent);
+		} catch (err) {
+			toast.error("Failed to save", {
+				description: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}, [activeTab, content, open]);
+
+	const createNewDocument = useCallback(async () => {
+		const selected = await desktopApi.saveMarkdownFilePicker({});
+		if (!selected) return;
+		try {
+			await desktopApi.writeFileText(selected, "");
+			open(selected);
+		} catch (err) {
+			toast.error("Failed to create file", {
+				description: err instanceof Error ? err.message : String(err),
+			});
+		}
+	}, [open]);
+
+	const handleOpenFile = useCallback(async () => {
+		const selected = await desktopApi.openFilePicker({});
+		if (typeof selected === "string") {
+			open(selected);
+		}
+	}, [open]);
+
+	useEffect(() => {
+		const unsub = desktopApi.onMenuOpenFile(() => {
+			void handleOpenFile();
+		});
+		return unsub;
+	}, [handleOpenFile]);
+
+	useEffect(() => {
+		const hasMarkdown =
+			typeof activeTab?.path === "string" &&
+			activeTab.path !== "" &&
+			hasMarkdownExtension(activeTab.path);
+		void desktopApi.setMenuState({
+			hasWorkspace: false,
+			hasMarkdownNoteOpen: hasMarkdown,
+			isSourceMode: viewMode === "source",
+		});
+	}, [activeTab?.path, viewMode]);
+
+	useEffect(() => {
+		const disposers = [
+			desktopApi.onMenuToggleTerminal(() => toggleTerminal()),
+			desktopApi.onMenuToggleSourceMode(() => {
+				if (
+					!activeTab ||
+					activeTab.path === "" ||
+					!hasMarkdownExtension(activeTab.path)
+				) {
+					return;
+				}
+				setViewerMode(viewMode === "source" ? "rich" : "source");
+			}),
+		];
+		return () => {
+			for (const dispose of disposers) dispose();
+		};
+	}, [activeTab, viewMode]);
+
+	useEffect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			const mod = e.metaKey || e.ctrlKey;
+			if (mod && e.key === "o") {
+				e.preventDefault();
+				void handleOpenFile();
+			}
+			if (mod && e.key === "t") {
+				e.preventDefault();
+				openUntitledTab();
+			}
+			if (mod && e.key === "n") {
+				e.preventDefault();
+				void createNewDocument();
+			}
+			if (mod && e.key === "s") {
+				e.preventDefault();
+				void handleSave();
+			}
+			if (mod && e.key === "w") {
+				e.preventDefault();
+				if (activeTab) close(activeTab.path);
+			}
+			if (mod && e.key === "j") {
+				e.preventDefault();
+				toggleTerminal();
+			}
+			if (e.altKey && mod && e.key === "u") {
+				e.preventDefault();
+				if (
+					activeTab &&
+					activeTab.path !== "" &&
+					hasMarkdownExtension(activeTab.path)
+				) {
+					setViewerMode(viewMode === "source" ? "rich" : "source");
+				}
+			}
+		}
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [
+		handleOpenFile,
+		handleSave,
+		createNewDocument,
+		activeTab,
+		close,
+		viewMode,
+	]);
+
+	return (
+		<main className="flex h-dvh flex-col bg-background text-foreground">
+			<TabBar
+				tabs={tabs}
+				activeIndex={activeIndex}
+				onSwitch={switchTo}
+				onClose={close}
+				onOpen={() => void handleOpenFile()}
+				platformInset={!isFullScreen}
+			/>
+
+			<section className="flex-1 min-h-0 overflow-hidden">
+				{activeTab?.path === "" && (
+					<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						⌘+N For New
+					</p>
+				)}
+				{status === "loading" && (
+					<p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						Loading…
+					</p>
+				)}
+				{status === "error" && (
+					<p className="flex h-full items-center justify-center text-sm text-destructive">
+						{error ?? "Failed to open file."}
+					</p>
+				)}
+				{status === "ready" && activeTab && (
+					<div className="flex h-full min-h-0 flex-col">
+						{viewMode === "source" && hasMarkdownExtension(activeTab.path) ? (
+							<MarkdownSourceEditor
+								key={`${activeTab.path}:source`}
+								path={activeTab.path}
+								initialMarkdown={content}
+								onLocalChange={handleLocalChange}
+								onSave={handleSave}
+							/>
+						) : (
+							<EditorView
+								key={activeTab.path}
+								path={activeTab.path}
+								initialMarkdown={content}
+								extensions={[
+									createImageExtension(activeTab.path),
+									createEmbedExtension({
+										workspacePath: null,
+										filePath: activeTab.path,
+									}),
+								]}
+								onPaste={(editor, event) => handleImagePaste({ editor, event })}
+								onDrop={(editor, event) => handleImageDrop({ editor, event })}
+								onLocalChange={handleLocalChange}
+								onSave={handleSave}
+								onOpenExternalLink={(href) =>
+									void desktopApi.openExternalUrl(href)
+								}
+								onOpenWikiLink={() => {}}
+							/>
+						)}
+					</div>
+				)}
+			</section>
+			{activeTab?.path !== "" && (
+				<TerminalPanel
+					cwd={
+						activeTab?.path ? (dirname(activeTab.path) ?? undefined) : undefined
+					}
+				/>
+			)}
+		</main>
+	);
+}

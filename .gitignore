@@ -49,3 +49,6 @@ packages/sync-backend/convex/*.js.map
 .opencode/
 .hermes/
 graphify-out/
+
+# iOS build artifacts
+apps/ios/

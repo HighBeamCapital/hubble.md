@@ -116,6 +116,12 @@ const desktopApi = {
 		subscribe("desktop:fullscreen-change", (isFullScreen: boolean) =>
 			callback(isFullScreen),
 		),
+	getStandaloneSettings: () =>
+		ipcRenderer.invoke("desktop:standalone:load-settings"),
+	saveStandaloneSettings: (settings) =>
+		ipcRenderer.invoke("desktop:standalone:save-settings", settings),
+	closeStandaloneWindow: () =>
+		ipcRenderer.invoke("desktop:standalone:close-window"),
 	terminalStart: (cwd, options) =>
 		ipcRenderer.invoke("desktop:terminal-start", { cwd, ...options }),
 	terminalWrite: (sessionId, data) =>

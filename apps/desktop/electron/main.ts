@@ -26,6 +26,7 @@ import type {
 	DesktopUpdateState,
 	DirectoryListing,
 	MenuState,
+	StandaloneSettings,
 	WorkspaceConfig,
 } from "../src/desktopApi/types";
 import {
@@ -105,6 +106,7 @@ let saveWindowStateTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingOpenPath: string | null = firstExistingFileArg(
 	process.argv.slice(1),
 );
+let pendingStandalonePath: string | null = null;
 const launchWorkspacePath =
 	isDev && process.env.HUBBLE_DESKTOP_DEV_WORKSPACE
 		? resolvePath(process.env.HUBBLE_DESKTOP_DEV_WORKSPACE)
@@ -129,6 +131,7 @@ const watchers = new Map<string, FSWatcher>();
 const grantedFiles = new Set<string>();
 const grantedRoots = new Set<string>();
 let grantsLoaded = false;
+const standaloneWindows = new Map<string, BrowserWindow>();
 
 const ignoreConfigFiles = [".gitignore", ".ignore"];
 const ignoredWorkspaceDirs = new Set([".git", "dist", "node_modules"]);
@@ -175,6 +178,10 @@ function grantsPath(): string {
 
 function windowStatePath(): string {
 	return path.join(app.getPath("userData"), "window-size.json");
+}
+
+function standaloneSettingsPath(): string {
+	return path.join(app.getPath("userData"), "standalone-settings.json");
 }
 
 function workspaceConfigPath(workspacePath: string): string {
@@ -559,7 +566,6 @@ function firstExistingFileArg(args: string[]): string | null {
 		const resolved = path.resolve(arg);
 		try {
 			if (fsSync.statSync(resolved).isFile()) {
-				grantFileWithParent(resolved);
 				return resolved;
 			}
 		} catch {
@@ -570,7 +576,8 @@ function firstExistingFileArg(args: string[]): string | null {
 }
 
 function sendToRenderer(channel: string, ...args: unknown[]) {
-	mainWindow?.webContents.send(channel, ...args);
+	const target = BrowserWindow.getFocusedWindow() ?? mainWindow;
+	target?.webContents.send(channel, ...args);
 }
 
 function assetPathFromUrl(url: URL): string {
@@ -816,7 +823,7 @@ function buildMenu() {
 					id: "toggle-terminal",
 					label: "Toggle Terminal",
 					accelerator: "CmdOrCtrl+J",
-					enabled: menuState.hasWorkspace,
+					enabled: menuState.hasWorkspace || menuState.hasMarkdownNoteOpen,
 					click: () => sendToRenderer("desktop:menu-toggle-terminal"),
 				},
 				{
@@ -1147,15 +1154,18 @@ async function createWindow() {
 
 	// On Linux/Windows the menu bar is hidden by the custom title bar, so menu
 	// accelerators (incl. DevTools) don't fire. Bind the DevTools toggle directly.
-	if (isDev && process.platform !== "darwin") {
-		window.webContents.on("before-input-event", (_event, input) => {
-			if (input.type !== "keyDown") return;
-			const key = input.key.toLowerCase();
-			if (key === "f12" || (input.control && input.shift && key === "i")) {
-				window.webContents.toggleDevTools();
-			}
-		});
-	}
+	// Also enables DevTools in production builds for debugging.
+	window.webContents.on("before-input-event", (_event, input) => {
+		if (input.type !== "keyDown") return;
+		const key = input.key.toLowerCase();
+		if (
+			key === "f12" ||
+			(input.control && input.shift && key === "i") ||
+			(input.meta && input.alt && key === "i")
+		) {
+			window.webContents.toggleDevTools();
+		}
+	});
 	window.on("enter-full-screen", () =>
 		sendToRenderer("desktop:fullscreen-change", true),
 	);
@@ -1179,6 +1189,126 @@ async function createWindow() {
 		await window.loadURL(process.env.ELECTRON_RENDERER_URL);
 	} else {
 		await window.loadFile(path.join(__dirname, "../renderer/index.html"));
+	}
+}
+
+async function loadStandaloneSettings(): Promise<StandaloneSettings | null> {
+	try {
+		const raw = await fs.readFile(standaloneSettingsPath(), "utf8");
+		const parsed = JSON.parse(raw) as Partial<StandaloneSettings>;
+		return {
+			windowBounds: parsed.windowBounds ?? { width: 900, height: 800 },
+			zoomFactor: parsed.zoomFactor ?? 1,
+			openTabs: Array.isArray(parsed.openTabs) ? parsed.openTabs : [],
+		};
+	} catch {
+		return null;
+	}
+}
+
+async function persistStandaloneSettings(settings: StandaloneSettings) {
+	try {
+		await fs.mkdir(path.dirname(standaloneSettingsPath()), { recursive: true });
+		await fs.writeFile(
+			standaloneSettingsPath(),
+			JSON.stringify(settings, null, 2),
+		);
+	} catch {
+		// Best-effort persistence should not interrupt the user.
+	}
+}
+
+async function createStandaloneWindow(filePath?: string) {
+	const resolved = filePath ? resolvePath(filePath) : null;
+
+	if (resolved) {
+		const existing = standaloneWindows.get(resolved);
+		if (existing && !existing.isDestroyed()) {
+			existing.focus();
+			return;
+		}
+		grantFile(resolved);
+	}
+
+	const settings = await loadStandaloneSettings();
+	const bounds = settings?.windowBounds ?? { width: 900, height: 800 };
+	const zoom = settings?.zoomFactor ?? 1;
+
+	const window = new BrowserWindow({
+		title: resolved ? path.basename(resolved) : "Untitled",
+		width: bounds.width,
+		height: bounds.height,
+		show: false,
+		titleBarStyle: "hidden",
+		...(process.platform !== "darwin"
+			? { titleBarOverlay: { color: "#ffffff", symbolColor: "#454545" } }
+			: {}),
+		trafficLightPosition: trafficLightPositionForZoom(zoom),
+		webPreferences: {
+			contextIsolation: true,
+			nodeIntegration: false,
+			preload: path.join(__dirname, "../preload/preload.mjs"),
+			sandbox: false,
+		},
+	});
+
+	if (resolved) {
+		standaloneWindows.set(resolved, window);
+	}
+
+	window.webContents.once("did-finish-load", async () => {
+		window.webContents.setZoomFactor(zoom);
+		await setTrafficLightInset(window, zoom);
+		if (window.isDestroyed()) return;
+		window.show();
+	});
+
+	window.webContents.once("did-fail-load", () => {
+		if (window.isDestroyed()) return;
+		window.show();
+	});
+
+	window.webContents.on("before-input-event", (_event, input) => {
+		if (input.type !== "keyDown") return;
+		const key = input.key.toLowerCase();
+		if (
+			key === "f12" ||
+			(input.control && input.shift && key === "i") ||
+			(input.meta && input.alt && key === "i")
+		) {
+			window.webContents.toggleDevTools();
+		}
+	});
+
+	window.on("resize", () => {
+		if (window.isDestroyed() || window.isMinimized()) return;
+		const b = window.getNormalBounds();
+		void persistStandaloneSettings({
+			windowBounds: { width: b.width, height: b.height },
+			zoomFactor: window.webContents.getZoomFactor(),
+			openTabs: [...standaloneWindows.keys()],
+		});
+	});
+
+	window.on("closed", () => {
+		if (resolved) {
+			standaloneWindows.delete(resolved);
+		}
+	});
+
+	const search = new URLSearchParams({ standalone: "1" });
+	if (resolved) {
+		search.set("file", toRendererPath(resolved));
+	}
+
+	if (isDev && process.env.ELECTRON_RENDERER_URL) {
+		const url = new URL(process.env.ELECTRON_RENDERER_URL);
+		url.search = search.toString();
+		await window.loadURL(url.toString());
+	} else {
+		await window.loadFile(path.join(__dirname, "../renderer/index.html"), {
+			search: `?${search.toString()}`,
+		});
 	}
 }
 
@@ -1574,6 +1704,24 @@ function registerIpc() {
 		};
 		buildMenu();
 	});
+
+	ipcMain.handle("desktop:standalone:load-settings", async () => {
+		return await loadStandaloneSettings();
+	});
+
+	ipcMain.handle(
+		"desktop:standalone:save-settings",
+		async (_event, settings: StandaloneSettings) => {
+			await persistStandaloneSettings(settings);
+		},
+	);
+
+	ipcMain.handle("desktop:standalone:close-window", (event) => {
+		const win = BrowserWindow.fromWebContents(event.sender);
+		if (win && !win.isDestroyed()) {
+			win.close();
+		}
+	});
 }
 
 protocol.registerSchemesAsPrivileged([
@@ -1595,25 +1743,36 @@ if (!singleInstanceLock) {
 	app.on("second-instance", (_event, argv) => {
 		const openPath = firstExistingFileArg(argv.slice(1));
 		if (!openPath) return;
-		pendingOpenPath = openPath;
-		if (mainWindow) {
-			if (mainWindow.isMinimized()) mainWindow.restore();
-			mainWindow.focus();
-			sendToRenderer("desktop:open-file", toRendererPath(openPath));
-		}
+		grantFileWithParent(openPath);
+		createStandaloneWindow(openPath).catch((err) => {
+			console.error(err);
+			dialog.showErrorBox("Failed to open file", String(err));
+		});
 	});
 
 	app.on("open-file", (event, filePath) => {
 		event.preventDefault();
 		const resolved = resolvePath(filePath);
+		if (!grantsLoaded) {
+			pendingOpenPath = resolved;
+			return;
+		}
 		grantFileWithParent(resolved);
-		pendingOpenPath = resolved;
-		sendToRenderer("desktop:open-file", toRendererPath(resolved));
+		createStandaloneWindow(resolved).catch((err) => {
+			console.error(err);
+			dialog.showErrorBox("Failed to open file", String(err));
+		});
 	});
 
 	app.whenReady().then(async () => {
 		await loadGrants();
 		if (launchWorkspacePath) grantRoot(launchWorkspacePath);
+
+		if (pendingOpenPath) {
+			pendingStandalonePath = pendingOpenPath;
+			pendingOpenPath = null;
+		}
+
 		await saveGrants();
 		protocol.handle("hubble-asset", (request) => {
 			const url = new URL(request.url);
@@ -1626,7 +1785,36 @@ if (!singleInstanceLock) {
 		registerIpc();
 		buildMenu();
 		configureAutoUpdates();
-		await createWindow();
+
+		if (process.platform === "darwin" && app.dock) {
+			app.dock.setMenu(
+				Menu.buildFromTemplate([
+					{
+						label: "New Window",
+						click: () => void createWindow(),
+					},
+					{
+						label: "New File",
+						click: () =>
+							createStandaloneWindow().catch((err) => {
+								console.error(err);
+								dialog.showErrorBox("Failed to create new file", String(err));
+							}),
+					},
+				]),
+			);
+		}
+
+		if (pendingStandalonePath) {
+			const filePath = pendingStandalonePath;
+			pendingStandalonePath = null;
+			createStandaloneWindow(filePath).catch((err) => {
+				console.error(err);
+				dialog.showErrorBox("Failed to open file", String(err));
+			});
+		} else {
+			await createWindow();
+		}
 	});
 
 	app.on("window-all-closed", () => {
