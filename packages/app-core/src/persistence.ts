@@ -38,7 +38,9 @@ export function createStorage(storageKey: string) {
 	return { storageKey, readLastOpenedPaths, serialize };
 }
 
-export function readLastOpenedPaths(storageKey: string): Record<string, string> {
+export function readLastOpenedPaths(
+	storageKey: string,
+): Record<string, string> {
 	return createStorage(storageKey).readLastOpenedPaths();
 }
 

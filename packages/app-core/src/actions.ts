@@ -7,8 +7,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { categorizeError, describeError } from "./convex-error";
 import { ensureDeviceId } from "./deviceId";
 import { latest } from "./latest";
-import type { AssetEntry, FileEntry, ViewerState } from "./state";
-import type { createStore } from "./state";
+import type { AssetEntry, createStore, FileEntry, ViewerState } from "./state";
 
 type Stores = ReturnType<typeof createStore>;
 
@@ -21,7 +20,11 @@ type Ctx = {
 
 let ctx: Ctx | null = null;
 
-function createCtx(url: string, workspaceId: string, stores: Ctx["stores"]): Ctx {
+function createCtx(
+	url: string,
+	workspaceId: string,
+	stores: Ctx["stores"],
+): Ctx {
 	return {
 		backend: createConvexBackend(url),
 		workspaceId,
@@ -30,7 +33,11 @@ function createCtx(url: string, workspaceId: string, stores: Ctx["stores"]): Ctx
 	};
 }
 
-export function initActions(url: string, workspaceId: string, stores: Ctx["stores"]): void {
+export function initActions(
+	url: string,
+	workspaceId: string,
+	stores: Ctx["stores"],
+): void {
 	ctx = createCtx(url, workspaceId, stores);
 }
 
@@ -311,7 +318,7 @@ export async function uploadAssetFile(args: {
 	path: string;
 	file: File;
 }): Promise<string> {
-	const { backend, workspaceId, deviceId, stores } = requireCtx();
+	const { backend, workspaceId, deviceId } = requireCtx();
 	const bytes = await args.file.arrayBuffer();
 	const contentHash = await computeBytesHash(bytes);
 	const paths = assetPathsForNote(args.path, contentHash, args.file);
