@@ -47,4 +47,5 @@ packages/sync-backend/convex/*.js.map
 
 # local tooling
 .opencode/
+.hermes/
 graphify-out/
