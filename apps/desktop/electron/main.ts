@@ -921,6 +921,13 @@ function configureAutoUpdates() {
 			provider: "generic",
 			url: updateFeedUrl,
 		});
+	} else {
+		autoUpdater.setFeedURL({
+			provider: "github",
+			owner: "HighBeamCapital",
+			repo: "hubble.md",
+			releaseType: "release",
+		});
 	}
 	autoUpdater.autoDownload = true;
 	autoUpdater.autoInstallOnAppQuit = true;
