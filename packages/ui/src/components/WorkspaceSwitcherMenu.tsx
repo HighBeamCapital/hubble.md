@@ -39,7 +39,7 @@ function Item({
 					<span className="flex-1 truncate">{children}</span>
 					<button
 						type="button"
-						className="ms-auto shrink-0 rounded-sm p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-muted-foreground group-data-[highlighted]:opacity-100"
+						className="ms-auto shrink-0 rounded-sm p-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-muted-foreground group-data-[highlighted]/item:opacity-100"
 						onPointerDown={(e) => {
 							e.stopPropagation();
 						}}
