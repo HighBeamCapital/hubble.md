@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { basename } from "./lib/filePath";
 import { renderMarkdown } from "./lib/renderMarkdown";
 import { tauriApi } from "./tauriApi";
@@ -9,6 +11,7 @@ const btn =
 	"rounded-full bg-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-700 active:bg-zinc-300 active:scale-95 transition dark:bg-zinc-700 dark:text-zinc-200 dark:active:bg-zinc-600";
 
 export function App() {
+	console.log("[HUBBLE] App component mounted");
 	const [filePath, setFilePath] = useState<string | null>(null);
 	const [content, setContent] = useState("");
 	const [previewMode, setPreviewMode] = useState(false);
@@ -63,20 +66,85 @@ export function App() {
 	}, []);
 
 	useEffect(() => {
-		setShowPicker(true);
-	}, []);
-
-	useEffect(() => {
-		if (!showPicker) return;
+		console.log("[HUBBLE] Mount: checking opened_urls");
 		let cancelled = false;
 		(async () => {
 			try {
-				const path = await tauriApi.openFilePicker();
-				if (!cancelled && path) await loadFile(path);
-				if (!cancelled && !path) setShowPicker(false);
+				const urls = await invoke<string[]>("opened_urls");
+				console.log("[HUBBLE] opened_urls:", JSON.stringify(urls));
+				if (!cancelled && urls.length > 0) {
+					const url = urls[0];
+					const path = url.startsWith("file://")
+						? decodeURIComponent(url.slice(7))
+						: url;
+					if (path) {
+						try {
+							await loadFile(path);
+						} catch (e) {
+							console.error("[HUBBLE] Failed to load opened file:", e);
+							if (!cancelled) setShowPicker(true);
+						}
+						return;
+					}
+				}
+				if (!cancelled) {
+					console.log("[HUBBLE] No URLs, showing picker");
+					setShowPicker(true);
+				}
 			} catch (e) {
-				console.error("Failed to open file:", e);
-				if (!cancelled) setShowPicker(false);
+				console.error("[HUBBLE] Failed to check launch URLs:", e);
+				if (!cancelled) setShowPicker(true);
+			}
+		})();
+		const unlisten = listen<string[]>("opened", async (event) => {
+			console.log("[HUBBLE] Received opened event:", JSON.stringify(event.payload));
+			const urls = event.payload;
+			if (urls.length > 0) {
+				const url = urls[0];
+				const path = url.startsWith("file://")
+					? decodeURIComponent(url.slice(7))
+					: url;
+				if (path) {
+					try {
+						await loadFile(path);
+					} catch (e) {
+						console.error("[HUBBLE] Failed to load opened file from event:", e);
+					}
+				}
+			}
+		});
+		return () => {
+			cancelled = true;
+			unlisten.then((fn) => fn());
+		};
+	}, [loadFile]);
+
+	useEffect(() => {
+		if (!showPicker) return;
+		console.log("[HUBBLE] showPicker=true, calling pickFile");
+		let cancelled = false;
+		const MAX_ATTEMPTS = 5;
+		const RETRY_MS = 200;
+		(async () => {
+			for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+				if (cancelled) return;
+				try {
+					console.log(`[HUBBLE] pickFile attempt ${attempt + 1}/${MAX_ATTEMPTS}`);
+					const picked = await tauriApi.pickFile();
+					console.log("[HUBBLE] pickFile returned:", picked);
+					if (!cancelled && picked) await loadFile(picked.path);
+					if (!cancelled && !picked) setShowPicker(false);
+					return;
+				} catch (e) {
+					console.error(`[HUBBLE] pickFile attempt ${attempt + 1} failed:`, e);
+					if (attempt < MAX_ATTEMPTS - 1) {
+						await new Promise((r) => setTimeout(r, RETRY_MS));
+					}
+				}
+			}
+			if (!cancelled) {
+				console.error("[HUBBLE] All pickFile attempts failed");
+				setShowPicker(false);
 			}
 		})();
 		return () => {

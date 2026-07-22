@@ -93,6 +93,10 @@ export const tauriApi = {
 		return path;
 	},
 
+	async pickFile(): Promise<{ path: string } | null> {
+		return invoke<{ path: string } | null>("pick_file");
+	},
+
 	async startScopedAccess(path: string): Promise<void> {
 		await invoke("start_scoped_access", { path });
 	},

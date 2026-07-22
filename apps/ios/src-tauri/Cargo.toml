@@ -17,4 +17,25 @@ tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-objc = "0.2"
+objc = { version = "0.2", features = ["exception"] }
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+    "NSFileCoordinator",
+    "NSFileManager",
+    "NSFilePresenter",
+    "NSURL",
+    "NSError",
+    "NSString",
+    "NSObject",
+] }
+objc2-ui-kit = { version = "0.3", features = [
+    "UIAlert",
+    "UIAlertController",
+    "UITextField",
+    "UIViewController",
+    "block2",
+] }
+
+[patch.crates-io]
+tao = { path = "tao-local" }
