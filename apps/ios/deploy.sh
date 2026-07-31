@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -36,26 +36,32 @@ with open(target_path, "wb") as f:
     plistlib.dump(target, f)
 EOF
 
-echo "Building Xcode project..."
-rm -rf "$BUILD_DIR"
-xcodebuild \
-  -project "$SRC_TAURI/gen/apple/hubble.xcodeproj" \
-  -scheme hubble_iOS \
-  -configuration release \
-  -sdk iphoneos \
-  -arch arm64 \
-  CODE_SIGN_STYLE=Automatic \
-  DEVELOPMENT_TEAM=9SHT95CC5X \
-  -derivedDataPath "$BUILD_DIR" \
-  2>&1 | grep -E "(BUILD SUCCEEDED|BUILD FAILED|error:)"
-
-echo "Installing on iPhone..."
+echo "Finding iPhone..."
 DEVICE_ID=$(xcrun devicectl list devices 2>/dev/null | grep -i "iphone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
 if [ -z "$DEVICE_ID" ]; then
   echo "No device found. Connect your iPhone via USB."
   exit 1
 fi
 
+echo "Building Xcode project..."
+rm -rf "$BUILD_DIR"
+# -destination (not -sdk/-arch) so automatic signing resolves provisioning
+# against the actual connected device instead of falling back to a generic
+# team-wide profile lookup, which fails with a misleading "no devices" error
+# on free-tier Apple ID accounts.
+xcodebuild \
+  -project "$SRC_TAURI/gen/apple/hubble.xcodeproj" \
+  -scheme hubble_iOS \
+  -configuration release \
+  -destination "id=$DEVICE_ID" \
+  CODE_SIGN_STYLE=Automatic \
+  DEVELOPMENT_TEAM=9SHT95CC5X \
+  -derivedDataPath "$BUILD_DIR" \
+  -allowProvisioningUpdates \
+  build \
+  2>&1 | grep -E "(BUILD SUCCEEDED|BUILD FAILED|error:)"
+
+echo "Installing on iPhone..."
 xcrun devicectl device install app \
   --device "$DEVICE_ID" \
   "$BUILD_DIR/Build/Products/release-iphoneos/Hubble.app"
