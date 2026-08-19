@@ -48,8 +48,7 @@ export type DesktopUpdateStatus =
 	| "idle"
 	| "checking"
 	| "up-to-date"
-	| "downloading"
-	| "ready"
+	| "available"
 	| "error";
 
 export type DesktopUpdateState = {
@@ -57,7 +56,11 @@ export type DesktopUpdateState = {
 	status: DesktopUpdateStatus;
 	currentVersion: string;
 	availableVersion: string | null;
-	progressPercent: number | null;
+	// Where to download the new version. Desktop builds aren't code-signed with a
+	// Developer ID, so Squirrel.Mac can never verify an in-place update; point the
+	// user at the release page instead of attempting an auto-install that always
+	// fails signature validation.
+	releaseUrl: string | null;
 	message: string | null;
 	lastCheckedAt: number | null;
 };

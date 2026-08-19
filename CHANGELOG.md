@@ -13,6 +13,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+## [0.1.23] - 2026-08-19
+
+### Changed
+
+- On macOS, "Check for Updates" now points you to the release page to download and reinstall by hand instead of attempting an in-app install, since this build isn't code-signed with a Developer ID and can't pass Squirrel.Mac's signature check.
+
 ## [0.1.22] - 2026-08-19
 
 ### Fixed

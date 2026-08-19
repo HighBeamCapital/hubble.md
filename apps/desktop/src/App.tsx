@@ -165,11 +165,11 @@ function WorkspaceApp() {
 	const { tabs, activeIndex, close, switchTo } = useTabs();
 	const activeTab = useActiveTab();
 
-	const readyVersion =
-		updateState?.status === "ready"
+	const availableVersion =
+		updateState?.status === "available"
 			? (updateState.availableVersion ?? "__unknown__")
 			: null;
-	const showUpdateCallout = readyVersion !== dismissedVersion;
+	const showUpdateCallout = availableVersion !== dismissedVersion;
 
 	const openSettings = useCallback(() => {
 		setSettingsOpen(true);
@@ -179,7 +179,7 @@ function WorkspaceApp() {
 		try {
 			await desktopApi.installUpdate();
 		} catch (error) {
-			toast.error("Failed to install update", {
+			toast.error("Failed to open the release page", {
 				description: error instanceof Error ? error.message : String(error),
 			});
 		}
@@ -187,7 +187,7 @@ function WorkspaceApp() {
 
 	const triggerPrimaryUpdateAction = useCallback(async () => {
 		if (!updateState?.isSupported) return;
-		if (updateState.status === "ready") {
+		if (updateState.status === "available") {
 			await installUpdate();
 			return;
 		}
@@ -481,11 +481,11 @@ function WorkspaceApp() {
 				<Sidebar
 					onFocusedPathChange={setFocusedSidebarPath}
 					footer={
-						updateState?.status === "ready" && showUpdateCallout ? (
+						updateState?.status === "available" && showUpdateCallout ? (
 							<SidebarUpdateCallout
 								onInstall={installUpdate}
 								onDismiss={() =>
-									setDismissedVersion(readyVersion ?? "__unknown__")
+									setDismissedVersion(availableVersion ?? "__unknown__")
 								}
 							/>
 						) : undefined

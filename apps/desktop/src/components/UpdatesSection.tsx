@@ -14,13 +14,13 @@ export function SidebarUpdateCallout({
 			<div className="flex flex-col gap-3">
 				<div className="flex flex-col gap-1">
 					<p className="text-[11px] text-foreground">
-						<span className="font-semibold">A new version</span> is ready to
-						install.
+						<span className="font-semibold">A new version</span> is available to
+						download.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					<Button size="sm" onClick={onInstall}>
-						Restart
+						Download
 					</Button>
 					<Button
 						size="sm"
@@ -103,18 +103,9 @@ function getPrimaryButton(state: DesktopUpdateState) {
 				disabled: true,
 				variant: "outline" as const,
 			};
-		case "downloading":
+		case "available":
 			return {
-				label:
-					state.progressPercent !== null
-						? `Downloading ${Math.round(state.progressPercent)}%`
-						: "Downloading...",
-				disabled: true,
-				variant: "outline" as const,
-			};
-		case "ready":
-			return {
-				label: "Restart to Update",
+				label: "Download Update",
 				disabled: false,
 				variant: "default" as const,
 			};
@@ -131,10 +122,10 @@ function getSecondaryText(state: DesktopUpdateState) {
 	if (!state.isSupported) {
 		return state.message ?? "Updates are unavailable in this build.";
 	}
-	if (state.status === "downloading") {
+	if (state.status === "available") {
 		return state.availableVersion
-			? `Version ${state.availableVersion} is downloading in the background.`
-			: "A new release is downloading in the background.";
+			? `Version ${state.availableVersion} is available. This build isn't code-signed, so download and reinstall it manually.`
+			: "A new version is available. This build isn't code-signed, so download and reinstall it manually.";
 	}
 	return "";
 }

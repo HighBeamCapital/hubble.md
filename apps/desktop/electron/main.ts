@@ -116,12 +116,14 @@ let menuState: MenuState = {
 	hasMarkdownNoteOpen: false,
 	isSourceMode: false,
 };
+const updateReleasesUrl =
+	"https://github.com/HighBeamCapital/hubble.md/releases/latest";
 let updateState: DesktopUpdateState = {
 	isSupported: supportsAutoUpdates,
 	status: "idle",
 	currentVersion: app.getVersion(),
 	availableVersion: null,
-	progressPercent: null,
+	releaseUrl: null,
 	message: supportsAutoUpdates
 		? null
 		: "Updates are available on packaged macOS builds only.",
@@ -898,16 +900,11 @@ async function checkForUpdates() {
 		});
 		return;
 	}
-	if (
-		updateState.status === "checking" ||
-		updateState.status === "downloading" ||
-		updateState.status === "ready"
-	) {
+	if (updateState.status === "checking") {
 		return;
 	}
 	patchUpdateState({
 		status: "checking",
-		progressPercent: null,
 		message: null,
 	});
 	try {
@@ -936,14 +933,19 @@ function configureAutoUpdates() {
 			releaseType: "release",
 		});
 	}
-	autoUpdater.autoDownload = true;
-	autoUpdater.autoInstallOnAppQuit = true;
+	// Desktop builds on this fork aren't signed with a Developer ID certificate
+	// (no paid Apple Developer Program enrollment), so Squirrel.Mac can never
+	// verify a downloaded update against the running app's code signature. Auto
+	// download+install would just fail every time with a confusing native error.
+	// Only check whether a newer version exists, and send the user to the
+	// release page to install it by hand.
+	autoUpdater.autoDownload = false;
 	autoUpdater.on("update-available", (info) => {
 		patchUpdateState({
-			status: "downloading",
+			status: "available",
 			availableVersion: info.version ?? null,
-			progressPercent: 0,
-			message: "Downloading update...",
+			releaseUrl: updateReleasesUrl,
+			message: `Hubble ${info.version} is available. Download it from the releases page.`,
 			lastCheckedAt: Date.now(),
 		});
 	});
@@ -951,24 +953,8 @@ function configureAutoUpdates() {
 		patchUpdateState({
 			status: "up-to-date",
 			availableVersion: null,
-			progressPercent: null,
+			releaseUrl: null,
 			message: "Hubble is up to date.",
-			lastCheckedAt: Date.now(),
-		});
-	});
-	autoUpdater.on("download-progress", (progress) => {
-		patchUpdateState({
-			status: "downloading",
-			progressPercent: progress.percent,
-			message: "Downloading update...",
-		});
-	});
-	autoUpdater.on("update-downloaded", (info) => {
-		patchUpdateState({
-			status: "ready",
-			availableVersion: info.version ?? updateState.availableVersion,
-			progressPercent: 100,
-			message: "Restart Hubble to install the update.",
 			lastCheckedAt: Date.now(),
 		});
 	});
@@ -1689,11 +1675,11 @@ function registerIpc() {
 		await checkForUpdates();
 	});
 
-	ipcMain.handle("desktop:install-update", () => {
-		if (updateState.status !== "ready") {
-			throw new Error("No downloaded update is ready to install.");
+	ipcMain.handle("desktop:install-update", async () => {
+		if (updateState.status !== "available" || !updateState.releaseUrl) {
+			throw new Error("No update is available to download.");
 		}
-		autoUpdater.quitAndInstall(false, true);
+		await shell.openExternal(updateState.releaseUrl);
 	});
 
 	ipcMain.handle("desktop:set-menu-state", (_event, state: MenuState) => {
