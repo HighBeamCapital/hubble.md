@@ -366,7 +366,7 @@ function WorkspaceApp() {
 			active = false;
 			unsubscribe();
 		};
-	});
+	}, []);
 
 	useEffect(() => {
 		if (!desktopApi.onOpenFile) return;
@@ -421,7 +421,7 @@ function WorkspaceApp() {
 		return () => {
 			dispose();
 		};
-	});
+	}, []);
 
 	useEffect(() => {
 		let active = true;

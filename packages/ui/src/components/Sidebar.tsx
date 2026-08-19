@@ -382,6 +382,12 @@ export function Sidebar({
 }) {
 	const navRef = useRef<HTMLDivElement>(null);
 	const renameInputRef = useRef<HTMLInputElement | null>(null);
+	const handleSortModeChange = useCallback(
+		(mode: SidebarSortMode | null) => {
+			if (mode) onSortModeChange(mode);
+		},
+		[onSortModeChange],
+	);
 	const [openActionsPath, setOpenActionsPath] = useState<string | null>(null);
 	const [renamingItem, setRenamingItem] = useState<RenameItem | null>(null);
 	const [renameDraft, setRenameDraft] = useState("");
@@ -1155,12 +1161,7 @@ export function Sidebar({
 							<MingcuteNewFolderLine className="size-3.5" />
 						</Button>
 					)}
-					<Select.Root
-						value={sortMode}
-						onValueChange={(mode) => {
-							if (mode) onSortModeChange(mode);
-						}}
-					>
+					<Select.Root value={sortMode} onValueChange={handleSortModeChange}>
 						<Select.Trigger
 							render={
 								<Button

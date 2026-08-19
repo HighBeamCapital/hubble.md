@@ -13,6 +13,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+## [0.1.24] - 2026-08-19
+
+### Fixed
+
+- Fixed the actual cause of the desktop app pegging the CPU indefinitely: an update-status effect was missing its dependency array, so it re-ran on every render, re-fetched update state over IPC, and re-triggered itself forever. The 0.1.22 note-formatting fix addressed a real but secondary issue; this is the one that mattered.
+
 ## [0.1.23] - 2026-08-19
 
 ### Changed
