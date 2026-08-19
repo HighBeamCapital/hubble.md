@@ -13,6 +13,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+## [0.1.22] - 2026-08-19
+
+### Fixed
+
+- Notes with non-standard blank-line spacing or a missing trailing newline no longer trigger a save/reload loop that pegs the CPU after opening.
+
 ## [0.1.18] - 2026-07-16
 
 ### Added

@@ -1,6 +1,9 @@
 import { toast } from "sonner";
 import { desktopApi } from "../desktopApi";
-import { classifyFileChange } from "../externalFileChange";
+import {
+	classifyFileChange,
+	normalizeForComparison,
+} from "../externalFileChange";
 import {
 	absoluteWorkspacePath,
 	basename,
@@ -121,13 +124,13 @@ function pruneSelfSaves(path: string, now = Date.now()) {
 function rememberSelfSave(path: string, content: string) {
 	pruneSelfSaves(path);
 	const contents = selfSaves.get(path) ?? new Map<string, number>();
-	contents.set(content, Date.now() + SELF_SAVE_TTL_MS);
+	contents.set(normalizeForComparison(content), Date.now() + SELF_SAVE_TTL_MS);
 	selfSaves.set(path, contents);
 }
 
 function isSelfSave(path: string, content: string) {
 	pruneSelfSaves(path);
-	return selfSaves.get(path)?.has(content) ?? false;
+	return selfSaves.get(path)?.has(normalizeForComparison(content)) ?? false;
 }
 
 function selfSaveState(editorContent: string, diskContent: string) {
@@ -1042,6 +1045,34 @@ export async function deleteFolder(path: string) {
 	}
 }
 
+const RELOAD_LOOP_WINDOW_MS = 3000;
+const RELOAD_LOOP_LIMIT = 5;
+const recentReloads = new Map<string, number[]>();
+
+/**
+ * A watcher event that keeps reclassifying as "reload" for the same path means
+ * something (a save, a sync client, a misbehaving embed) is rewriting the file
+ * faster than we can settle. Keep reloading forever and the renderer spins at
+ * 100% CPU without ever surfacing the problem. Trip a breaker instead: once a
+ * path reloads too many times in a short window, stop auto-applying reloads and
+ * surface it as a conflict so the user can see what's happening.
+ */
+function tripReloadLoopBreaker(path: string): boolean {
+	const now = Date.now();
+	const timestamps = (recentReloads.get(path) ?? []).filter(
+		(t) => now - t < RELOAD_LOOP_WINDOW_MS,
+	);
+	timestamps.push(now);
+	recentReloads.set(path, timestamps);
+	if (timestamps.length > RELOAD_LOOP_LIMIT) {
+		console.warn(
+			`[hubble] Breaking reload loop for ${path}: reloaded ${timestamps.length} times in ${RELOAD_LOOP_WINDOW_MS}ms.`,
+		);
+		return true;
+	}
+	return false;
+}
+
 export function handleExternalFileChange(
 	path: string,
 	nextDiskContent: string,
@@ -1054,11 +1085,14 @@ export function handleExternalFileChange(
 				...selfSaveState(state.content, nextDiskContent),
 			};
 		}
-		const action = classifyFileChange({
+		let action = classifyFileChange({
 			editorContent: state.content,
 			baseline: getBaseline(state),
 			diskContent: nextDiskContent,
 		});
+		if (action === "reload" && tripReloadLoopBreaker(path)) {
+			action = "conflict";
+		}
 		return applyFileAction(state, nextDiskContent, action);
 	});
 }

@@ -51,4 +51,19 @@ describe("classifyFileChange", () => {
 			}),
 		).toBe("none");
 	});
+
+	it("none when disk content only differs from baseline by trailing newline or extra blank lines", () => {
+		// Regression test: a note with irregular blank-line runs and no trailing
+		// newline doesn't round-trip byte-for-byte through the Markdown editor.
+		// Treating that cosmetic reformatting as a real disk change used to drive
+		// an unbounded save -> watcher -> reload loop that pegged the renderer's
+		// CPU (see Hubble Energy Impact Suggested Fixes.md).
+		expect(
+			classifyFileChange({
+				editorContent: "# Title\n\nBody.",
+				baseline: "# Title\n\n\n\nBody.",
+				diskContent: "# Title\n\n\n\nBody.",
+			}),
+		).toBe("none");
+	});
 });
