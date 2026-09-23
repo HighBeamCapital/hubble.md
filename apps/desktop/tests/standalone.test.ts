@@ -27,7 +27,7 @@ const mockDesktopApi = {
 	onOpenFile: vi.fn().mockReturnValue(vi.fn()),
 };
 
-vi.mock("../../desktopApi", () => ({
+vi.mock("../src/desktopApi", () => ({
 	desktopApi: mockDesktopApi,
 }));
 
@@ -37,7 +37,7 @@ describe("Standalone mode tabs store", () => {
 	});
 
 	it("exports expected tab management functions", async () => {
-		const tabs = await import("../../store/tabs");
+		const tabs = await import("../src/store/tabs");
 		expect(typeof tabs.openTab).toBe("function");
 		expect(typeof tabs.closeTab).toBe("function");
 		expect(typeof tabs.switchTab).toBe("function");
@@ -47,7 +47,7 @@ describe("Standalone mode tabs store", () => {
 	});
 
 	it("initialFilePath getter/setter round-trips", async () => {
-		const tabs = await import("../../store/tabs");
+		const tabs = await import("../src/store/tabs");
 		expect(tabs.getInitialFilePath()).toBeNull();
 		tabs.setInitialFilePath("/test/file.md");
 		expect(tabs.getInitialFilePath()).toBe("/test/file.md");
