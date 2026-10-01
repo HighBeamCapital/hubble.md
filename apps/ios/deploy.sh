@@ -37,9 +37,19 @@ with open(target_path, "wb") as f:
 EOF
 
 echo "Finding iPhone..."
-DEVICE_ID=$(xcrun devicectl list devices 2>/dev/null | grep -i "iphone" | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+# Newer devicectl reports a USB-attached device as "connected"; older ones
+# use "available (paired)". Both skip stale pairings ("unavailable").
+# `|| true` keeps set -e/pipefail from exiting silently when grep finds nothing.
+DEVICE_ID=$(xcrun devicectl list devices 2>/dev/null | grep -i "iphone" | grep -i "physical" | grep -iE "[[:space:]](connected|available \(paired\))[[:space:]]" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{16,}' | head -1 || true)
 if [ -z "$DEVICE_ID" ]; then
-  echo "No device found. Connect your iPhone via USB."
+  echo "No available iPhone found. Connect it via USB, unlock it, and trust this Mac."
+  exit 1
+fi
+
+DEV_MODE=$(xcrun devicectl device info details --device "$DEVICE_ID" 2>/dev/null | grep -i "Developer Mode Status" || true)
+if echo "$DEV_MODE" | grep -qi "disabled"; then
+  echo "Developer Mode is off on the iPhone."
+  echo "Enable it in Settings > Privacy & Security > Developer Mode, then re-run."
   exit 1
 fi
 
@@ -49,7 +59,8 @@ rm -rf "$BUILD_DIR"
 # against the actual connected device instead of falling back to a generic
 # team-wide profile lookup, which fails with a misleading "no devices" error
 # on free-tier Apple ID accounts.
-xcodebuild \
+BUILD_LOG="$BUILD_DIR.log"
+if ! xcodebuild \
   -project "$SRC_TAURI/gen/apple/hubble.xcodeproj" \
   -scheme hubble_iOS \
   -configuration release \
@@ -59,7 +70,16 @@ xcodebuild \
   -derivedDataPath "$BUILD_DIR" \
   -allowProvisioningUpdates \
   build \
-  2>&1 | grep -E "(BUILD SUCCEEDED|BUILD FAILED|error:)"
+  >"$BUILD_LOG" 2>&1; then
+  # Multi-line errors (e.g. destination lists) lose context under a line grep,
+  # so show the tail of the log as well.
+  grep -E "error:" "$BUILD_LOG" || true
+  echo "--- last 40 lines ---"
+  tail -40 "$BUILD_LOG"
+  echo "BUILD FAILED. Full log: $BUILD_LOG"
+  exit 1
+fi
+echo "BUILD SUCCEEDED"
 
 echo "Installing on iPhone..."
 xcrun devicectl device install app \
