@@ -54,5 +54,12 @@
 	<true/>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
+	<!-- iOS 27 traps at launch without UIScene lifecycle adoption. tao only
+	     switches to its scene delegate when this flag is true. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

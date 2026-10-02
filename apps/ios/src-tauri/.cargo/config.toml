@@ -1,0 +1,4 @@
+[env]
+# Xcode 27 builds every Swift archive with local @_cdecl symbols. The SwiftRs
+# runtime must be global in exactly one archive, and every plugin links Tauri.
+SWIFT_RS_RUNTIME_ARCHIVE = "Tauri"
