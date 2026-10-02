@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ### Changed
 
 ### Fixed
+- iOS app no longer crashes at launch on iOS 27. [#1](https://github.com/HighBeamCapital/hubble.md/pull/1)
 
 ## [0.1.24] - 2026-08-19
 
