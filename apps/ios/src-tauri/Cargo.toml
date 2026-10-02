@@ -36,3 +36,8 @@ objc2-ui-kit = { version = "0.3", features = [
     "UIViewController",
     "block2",
 ] }
+
+# Xcode 27 link fix for the SwiftRs runtime symbols (swift-rs PR #80, see
+# .cargo/config.toml). Drop once swift-rs ships a release containing it.
+[patch.crates-io]
+swift-rs = { git = "https://github.com/alchaplinsky/swift-rs", rev = "aaf38d45ab3a4b10a5af3a3dbc64424e998fae8c" }
