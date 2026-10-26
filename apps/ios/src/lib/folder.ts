@@ -30,7 +30,13 @@ export function saveBookmark(bookmark: string | null) {
 
 export function isInFolder(path: string, folderPath: string | null): boolean {
 	if (!folderPath) return false;
-	return pathEquals(path, folderPath) || pathInFolder(path, folderPath);
+	// Resolve "." and ".." first so "/root/../Other.md" can't pass the prefix test.
+	const normalizedPath = normalizePath(path);
+	const normalizedFolder = normalizePath(folderPath);
+	return (
+		pathEquals(normalizedPath, normalizedFolder) ||
+		pathInFolder(normalizedPath, normalizedFolder)
+	);
 }
 
 /**
@@ -90,7 +96,11 @@ export function resolveRelativeLink({
 	return normalizePath(joinPath(base, path));
 }
 
-/** Candidate paths for a wiki link target, closest first. */
+/**
+ * Candidate paths for a wiki link target, closest first. Candidates are
+ * normalized and any that resolve outside the folder (`[[../../Other]]`) are
+ * dropped.
+ */
 export function wikiLinkCandidates({
 	target,
 	currentFilePath,
@@ -102,5 +112,7 @@ export function wikiLinkCandidates({
 }): string[] {
 	const name = withMarkdownExtension(target.split("#", 1)[0] ?? target);
 	const currentDir = dirname(currentFilePath) ?? folderPath;
-	return [joinPath(currentDir, name), joinPath(folderPath, name)];
+	return [joinPath(currentDir, name), joinPath(folderPath, name)]
+		.map(normalizePath)
+		.filter((candidate) => isInFolder(candidate, folderPath));
 }

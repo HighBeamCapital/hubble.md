@@ -7,6 +7,7 @@ import {
 	basename,
 	dirname,
 	hasMarkdownExtension,
+	normalizePath,
 	withMarkdownExtension,
 } from "./lib/filePath";
 import {
@@ -120,7 +121,7 @@ export function App() {
 				baselineRef.current = text;
 				setFilePath(path);
 				setInitialMarkdown(text);
-				if (inFolder) setDir(dirname(path));
+				if (inFolder) setDir(dirname(normalizePath(path)));
 			} finally {
 				setOpeningPath(null);
 			}
