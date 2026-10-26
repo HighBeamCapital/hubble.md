@@ -1,7 +1,8 @@
 mod pick_file;
 mod pick_folder;
+mod workspace;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 use std::ptr;
@@ -70,40 +71,6 @@ fn stop_scoped_access(path: String) -> Result<(), String> {
         let _: () = msg_send![ns_url, stopAccessingSecurityScopedResource];
         Ok(())
     }
-}
-
-#[derive(Serialize)]
-struct DirectoryEntry {
-    name: String,
-    path: String,
-    is_dir: bool,
-}
-
-#[derive(Serialize)]
-struct DirectoryListing {
-    entries: Vec<DirectoryEntry>,
-}
-
-#[tauri::command]
-fn list_directory(path: String) -> Result<DirectoryListing, String> {
-    let mut entries = Vec::new();
-    let dir = fs::read_dir(&path).map_err(|e| e.to_string())?;
-    for entry in dir {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let metadata = entry.metadata().map_err(|e| e.to_string())?;
-        entries.push(DirectoryEntry {
-            name: entry.file_name().to_string_lossy().to_string(),
-            path: entry.path().to_string_lossy().to_string(),
-            is_dir: metadata.is_dir(),
-        });
-    }
-    entries.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(DirectoryListing { entries })
-}
-
-#[tauri::command]
-fn read_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -259,8 +226,10 @@ fn mobile_entry() {
         .plugin(tauri_plugin_shell::init())
         .manage(OpenedUrls(Mutex::new(vec![])))
         .invoke_handler(tauri::generate_handler![
-            list_directory,
-            read_file,
+            workspace::list_directory,
+            workspace::read_file,
+            workspace::resolve_folder_bookmark,
+            workspace::find_markdown_file,
             write_file,
             create_folder,
             rename_file,

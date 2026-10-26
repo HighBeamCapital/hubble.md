@@ -1,26 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type FileEntry = { path: string; modified_at: number };
-export type FolderEntry = FileEntry;
-export type DirectoryListing = { files: FileEntry[]; folders: FolderEntry[] };
+export type DirectoryEntry = { name: string; path: string; is_dir: boolean };
+export type FolderAccess = { path: string; bookmark: string };
 
 export const tauriApi = {
-	async listDirectory(path: string): Promise<DirectoryListing> {
-		const result = await invoke<{
-			entries: Array<{ name: string; path: string; is_dir: boolean }>;
-		}>("list_directory", { path });
-		const now = Date.now();
-		const files: FileEntry[] = [];
-		const folders: FolderEntry[] = [];
-		for (const entry of result.entries) {
-			const item = { path: entry.path, modified_at: now };
-			if (entry.is_dir) {
-				folders.push(item);
-			} else {
-				files.push(item);
-			}
-		}
-		return { files, folders };
+	async listDirectory(path: string): Promise<DirectoryEntry[]> {
+		return invoke<DirectoryEntry[]>("list_directory", { path });
+	},
+
+	async pickFolder(): Promise<FolderAccess | null> {
+		return invoke<FolderAccess | null>("pick_folder");
+	},
+
+	async resolveFolderBookmark(bookmark: string): Promise<FolderAccess> {
+		return invoke<FolderAccess>("resolve_folder_bookmark", { bookmark });
+	},
+
+	async findMarkdownFile(
+		root: string,
+		fileName: string,
+	): Promise<string | null> {
+		return invoke<string | null>("find_markdown_file", { root, fileName });
 	},
 
 	async readFileText(path: string): Promise<string> {
