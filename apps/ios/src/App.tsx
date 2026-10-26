@@ -17,6 +17,7 @@ import {
 	saveBookmark,
 	wikiLinkCandidates,
 } from "./lib/folder";
+import { readFileForOpen } from "./lib/openFile";
 import { tauriApi } from "./tauriApi";
 
 type EditorMode = "rich" | "source";
@@ -106,27 +107,30 @@ export function App() {
 		async (path: string) => {
 			setOpeningPath(path);
 			try {
-				await releaseActiveFile();
-				const inFolder = isInFolder(path, folderRef.current);
-				if (!inFolder) await tauriApi.startScopedAccess(path);
-				let text: string;
-				try {
-					text = await tauriApi.readFileText(path);
-				} catch (e) {
-					if (!inFolder) await tauriApi.stopScopedAccess(path);
-					throw e;
-				}
-				activePathRef.current = path;
-				markdownRef.current = text;
-				baselineRef.current = text;
-				setFilePath(path);
-				setInitialMarkdown(text);
-				if (inFolder) setDir(dirname(normalizePath(path)));
+				await readFileForOpen({
+					path,
+					activePath: activePathRef.current,
+					folderPath: folderRef.current,
+					api: tauriApi,
+					// Runs once the new file is read and before the old scope is
+					// released. Flushing here saves edits made during the read.
+					commit: async (text) => {
+						await flushSave();
+						activePathRef.current = path;
+						markdownRef.current = text;
+						baselineRef.current = text;
+						setFilePath(path);
+						setInitialMarkdown(text);
+						if (isInFolder(path, folderRef.current)) {
+							setDir(dirname(normalizePath(path)));
+						}
+					},
+				});
 			} finally {
 				setOpeningPath(null);
 			}
 		},
-		[releaseActiveFile],
+		[flushSave],
 	);
 
 	const openNote = useCallback(
