@@ -27,6 +27,16 @@ export function withMarkdownExtension(path: string): string {
 	return hasMarkdownExtension(path) ? path : `${path}.md`;
 }
 
+export function markdownAssetFolderPath(path: string): string | null {
+	const parent = dirname(path);
+	if (!parent) return null;
+	const extension = extname(path);
+	const stem = extension
+		? basename(path).slice(0, -extension.length)
+		: basename(path);
+	return joinPath(parent, `${stem}.assets`);
+}
+
 export function joinPath(parent: string, name: string): string {
 	const separator = parent.includes("\\") && !parent.includes("/") ? "\\" : "/";
 	return parent.endsWith("/") || parent.endsWith("\\")

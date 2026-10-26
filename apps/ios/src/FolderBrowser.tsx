@@ -5,6 +5,7 @@ import {
 	dirname,
 	hasMarkdownExtension,
 	joinPath,
+	markdownAssetFolderPath,
 	pathEquals,
 	withMarkdownExtension,
 } from "./lib/filePath";
@@ -87,12 +88,34 @@ export function FolderBrowser({
 			return;
 		}
 		await tauriApi.renameFile(entry.path, path);
+		if (!entry.is_dir && hasMarkdownExtension(entry.path)) {
+			await moveAssetFolder(entry.path, path);
+		}
 		setSheet(null);
 		await refresh();
 	};
 
+	// A note's images live in a sibling "<note>.assets" folder; it follows the note.
+	const moveAssetFolder = async (fromNote: string, toNote: string) => {
+		const from = markdownAssetFolderPath(fromNote);
+		const to = markdownAssetFolderPath(toNote);
+		if (!from || !to || pathEquals(from, to)) return;
+		if (!(await tauriApi.pathExists(from))) return;
+		if (await tauriApi.pathExists(to)) {
+			onMessage(`${basename(to)} already exists; images were not moved`, "error");
+			return;
+		}
+		await tauriApi.renameFile(from, to);
+	};
+
 	const deleteEntry = async (entry: DirectoryEntry) => {
 		await tauriApi.deleteFile(entry.path, { recursive: entry.is_dir });
+		if (!entry.is_dir && hasMarkdownExtension(entry.path)) {
+			const assets = markdownAssetFolderPath(entry.path);
+			if (assets && (await tauriApi.pathExists(assets))) {
+				await tauriApi.deleteFile(assets, { recursive: true });
+			}
+		}
 		setSheet(null);
 		await refresh();
 	};
@@ -224,7 +247,12 @@ export function FolderBrowser({
 						<div className="flex flex-col gap-3 px-4">
 							<p className="text-center text-sm">
 								Delete <strong>{displayName(sheet.entry)}</strong>
-								{sheet.entry.is_dir ? " and everything in it" : ""}?
+								{sheet.entry.is_dir
+									? " and everything in it"
+									: hasMarkdownExtension(sheet.entry.path)
+										? " and its assets folder, if any"
+										: ""}
+								?
 							</p>
 							<SheetButton destructive onClick={() => run(() => deleteEntry(sheet.entry))}>
 								Delete
