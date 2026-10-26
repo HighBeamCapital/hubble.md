@@ -1,116 +1,139 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { EditorView, MarkdownSourceEditor } from "@hubble.md/ui";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { basename } from "./lib/filePath";
-import { renderMarkdown } from "./lib/renderMarkdown";
 import { tauriApi } from "./tauriApi";
 
-const DEBOUNCE_MS = 500;
+type EditorMode = "rich" | "source";
+type Message = { text: string; type: "success" | "error" };
+
+const MESSAGE_MS = 2500;
 
 const btn =
-	"rounded-full bg-zinc-200 px-4 py-1.5 text-sm font-medium text-zinc-700 active:bg-zinc-300 active:scale-95 transition dark:bg-zinc-700 dark:text-zinc-200 dark:active:bg-zinc-600";
+	"rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground active:scale-95 active:opacity-70 transition";
+
+function pathFromOpenedUrl(url: string): string {
+	return url.startsWith("file://") ? decodeURIComponent(url.slice(7)) : url;
+}
 
 export function App() {
-	console.log("[HUBBLE] App component mounted");
 	const [filePath, setFilePath] = useState<string | null>(null);
-	const [content, setContent] = useState("");
-	const [previewMode, setPreviewMode] = useState(false);
-	const [previewHtml, setPreviewHtml] = useState("");
+	const [initialMarkdown, setInitialMarkdown] = useState("");
+	const [mode, setMode] = useState<EditorMode>("rich");
 	const [showPicker, setShowPicker] = useState(false);
-	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const contentRef = useRef(content);
-	const filePathRef = useRef(filePath);
-	contentRef.current = content;
-	filePathRef.current = filePath;
+	const [message, setMessage] = useState<Message | null>(null);
+	// The file the app currently holds security-scoped access to. Saves for any
+	// other path are dropped, since iOS rejects writes once access is released.
+	const activePathRef = useRef<string | null>(null);
+	const markdownRef = useRef("");
+	// Last content known to be on disk; edits are pending while they differ.
+	const baselineRef = useRef("");
 
 	const fileName = filePath ? basename(filePath) : null;
 
-	const flushSave = useCallback(async () => {
-		if (timerRef.current) {
-			clearTimeout(timerRef.current);
-			timerRef.current = null;
-		}
-		if (!filePathRef.current) return;
-		try {
-			await tauriApi.writeFileText(filePathRef.current, contentRef.current);
-		} catch (e) {
-			console.error("Auto-save failed:", e);
-		}
+	const showMessage = useCallback((text: string, type: Message["type"]) => {
+		setMessage({ text, type });
 	}, []);
 
-	const scheduleSave = useCallback(() => {
-		if (timerRef.current) clearTimeout(timerRef.current);
-		timerRef.current = setTimeout(() => {
-			timerRef.current = null;
-			flushSave();
-		}, DEBOUNCE_MS);
+	useEffect(() => {
+		if (!message) return;
+		const timer = setTimeout(() => setMessage(null), MESSAGE_MS);
+		return () => clearTimeout(timer);
+	}, [message]);
+
+	const writeFile = useCallback(
+		async (path: string, markdown: string) => {
+			if (path !== activePathRef.current) return;
+			try {
+				await tauriApi.writeFileText(path, markdown);
+				baselineRef.current = markdown;
+			} catch (e) {
+				console.error("Auto-save failed:", e);
+				showMessage("Couldn't save changes", "error");
+			}
+		},
+		[showMessage],
+	);
+
+	const flushSave = useCallback(async () => {
+		const path = activePathRef.current;
+		if (!path || markdownRef.current === baselineRef.current) return;
+		await writeFile(path, markdownRef.current);
+	}, [writeFile]);
+
+	const handleLocalChange = useCallback((path: string, markdown: string) => {
+		if (path !== activePathRef.current) return;
+		markdownRef.current = markdown;
+	}, []);
+
+	const releaseActiveFile = useCallback(async () => {
+		await flushSave();
+		const path = activePathRef.current;
+		activePathRef.current = null;
+		if (path) await tauriApi.stopScopedAccess(path);
+	}, [flushSave]);
+
+	const loadFile = useCallback(
+		async (path: string) => {
+			await releaseActiveFile();
+			await tauriApi.startScopedAccess(path);
+			const text = await tauriApi.readFileText(path);
+			activePathRef.current = path;
+			markdownRef.current = text;
+			baselineRef.current = text;
+			setFilePath(path);
+			setInitialMarkdown(text);
+			setShowPicker(false);
+		},
+		[releaseActiveFile],
+	);
+
+	// iOS can suspend or kill the app once it leaves the foreground, so persist
+	// pending edits before the debounced save gets a chance to run.
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "hidden") void flushSave();
+		};
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
 	}, [flushSave]);
 
 	useEffect(() => {
 		return () => {
-			if (timerRef.current) clearTimeout(timerRef.current);
-			flushSave();
-			if (filePathRef.current) {
-				tauriApi.stopScopedAccess(filePathRef.current);
-			}
+			void releaseActiveFile();
 		};
-	}, [flushSave]);
-
-	const loadFile = useCallback(async (path: string) => {
-		await tauriApi.startScopedAccess(path);
-		const text = await tauriApi.readFileText(path);
-		setFilePath(path);
-		setContent(text);
-		setPreviewMode(false);
-		setShowPicker(false);
-	}, []);
+	}, [releaseActiveFile]);
 
 	useEffect(() => {
-		console.log("[HUBBLE] Mount: checking opened_urls");
 		let cancelled = false;
 		(async () => {
 			try {
 				const urls = await invoke<string[]>("opened_urls");
-				console.log("[HUBBLE] opened_urls:", JSON.stringify(urls));
-				if (!cancelled && urls.length > 0) {
-					const url = urls[0];
-					const path = url.startsWith("file://")
-						? decodeURIComponent(url.slice(7))
-						: url;
-					if (path) {
-						try {
-							await loadFile(path);
-						} catch (e) {
-							console.error("[HUBBLE] Failed to load opened file:", e);
-							if (!cancelled) setShowPicker(true);
-						}
-						return;
+				const path = urls[0] ? pathFromOpenedUrl(urls[0]) : null;
+				if (!cancelled && path) {
+					try {
+						await loadFile(path);
+					} catch (e) {
+						console.error("[HUBBLE] Failed to load opened file:", e);
+						if (!cancelled) setShowPicker(true);
 					}
+					return;
 				}
-				if (!cancelled) {
-					console.log("[HUBBLE] No URLs, showing picker");
-					setShowPicker(true);
-				}
+				if (!cancelled) setShowPicker(true);
 			} catch (e) {
 				console.error("[HUBBLE] Failed to check launch URLs:", e);
 				if (!cancelled) setShowPicker(true);
 			}
 		})();
 		const unlisten = listen<string[]>("opened", async (event) => {
-			console.log("[HUBBLE] Received opened event:", JSON.stringify(event.payload));
-			const urls = event.payload;
-			if (urls.length > 0) {
-				const url = urls[0];
-				const path = url.startsWith("file://")
-					? decodeURIComponent(url.slice(7))
-					: url;
-				if (path) {
-					try {
-						await loadFile(path);
-					} catch (e) {
-						console.error("[HUBBLE] Failed to load opened file from event:", e);
-					}
-				}
+			const url = event.payload[0];
+			if (!url) return;
+			try {
+				await loadFile(pathFromOpenedUrl(url));
+			} catch (e) {
+				console.error("[HUBBLE] Failed to load opened file from event:", e);
 			}
 		});
 		return () => {
@@ -121,7 +144,6 @@ export function App() {
 
 	useEffect(() => {
 		if (!showPicker) return;
-		console.log("[HUBBLE] showPicker=true, calling pickFile");
 		let cancelled = false;
 		const MAX_ATTEMPTS = 5;
 		const RETRY_MS = 200;
@@ -129,9 +151,7 @@ export function App() {
 			for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 				if (cancelled) return;
 				try {
-					console.log(`[HUBBLE] pickFile attempt ${attempt + 1}/${MAX_ATTEMPTS}`);
 					const picked = await tauriApi.pickFile();
-					console.log("[HUBBLE] pickFile returned:", picked);
 					if (!cancelled && picked) await loadFile(picked.path);
 					if (!cancelled && !picked) setShowPicker(false);
 					return;
@@ -142,55 +162,55 @@ export function App() {
 					}
 				}
 			}
-			if (!cancelled) {
-				console.error("[HUBBLE] All pickFile attempts failed");
-				setShowPicker(false);
-			}
+			if (!cancelled) setShowPicker(false);
 		})();
 		return () => {
 			cancelled = true;
 		};
 	}, [showPicker, loadFile]);
 
-	const handleChange = useCallback(
-		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-			setContent(e.target.value);
-			scheduleSave();
-		},
-		[scheduleSave],
-	);
-
 	const handleClose = useCallback(async () => {
-		await flushSave();
-		if (filePathRef.current) {
-			tauriApi.stopScopedAccess(filePathRef.current);
-		}
+		await releaseActiveFile();
 		setFilePath(null);
-		setContent("");
-		setPreviewMode(false);
+		setInitialMarkdown("");
 		setShowPicker(true);
-	}, [flushSave]);
+	}, [releaseActiveFile]);
 
-	const handleOpen = useCallback(() => {
-		setShowPicker(true);
+	const toggleMode = useCallback(() => {
+		// Each editor only reads initialMarkdown on mount, so hand the incoming
+		// editor the latest edits from the outgoing one.
+		setInitialMarkdown(markdownRef.current);
+		setMode((current) => (current === "rich" ? "source" : "rich"));
 	}, []);
 
-	const togglePreview = useCallback(async () => {
-		if (!previewMode) {
-			const html = await renderMarkdown(content);
-			setPreviewHtml(html);
-		}
-		setPreviewMode((p) => !p);
-	}, [previewMode, content]);
+	const openExternalLink = useCallback(
+		async (href: string) => {
+			try {
+				await tauriApi.openExternalUrl(href);
+			} catch (e) {
+				console.error("Failed to open link:", e);
+				showMessage("Couldn't open link", "error");
+			}
+		},
+		[showMessage],
+	);
+
+	const openWikiLink = useCallback(() => {
+		showMessage("Linked files can't be opened yet on iOS", "error");
+	}, [showMessage]);
 
 	if (!filePath) {
 		return (
-			<div className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
-				<p className="text-sm text-zinc-500">
+			<div className="flex h-full flex-col items-center justify-center gap-4 bg-background text-foreground [padding-block:env(safe-area-inset-top)_env(safe-area-inset-bottom)]">
+				<p className="text-sm text-muted-foreground">
 					{showPicker ? "Opening file..." : "No file open"}
 				</p>
 				{!showPicker && (
-					<button type="button" onClick={handleOpen} className={btn}>
+					<button
+						type="button"
+						onClick={() => setShowPicker(true)}
+						className={btn}
+					>
 						Open a file
 					</button>
 				)}
@@ -199,35 +219,55 @@ export function App() {
 	}
 
 	return (
-		<div className="flex h-screen flex-col bg-zinc-50 pb-[env(safe-area-inset-bottom)] text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
-			<div className="flex items-center gap-2 border-b border-zinc-200 px-3 pt-[env(safe-area-inset-top)] py-2 dark:border-zinc-700">
+		<div className="relative flex h-full flex-col bg-background text-foreground [padding-block-end:env(safe-area-inset-bottom)]">
+			<div className="flex items-center gap-2 border-b border-border px-3 [padding-block:calc(env(safe-area-inset-top)+0.5rem)_0.5rem]">
 				<button type="button" onClick={handleClose} className={btn}>
 					Close
 				</button>
-				<span className="flex-1 text-center text-sm text-zinc-500">
+				<span className="flex-1 truncate text-center text-sm text-muted-foreground">
 					{fileName}
 				</span>
-				<button type="button" onClick={togglePreview} className={btn}>
-					{previewMode ? "Raw" : "Preview"}
+				<button type="button" onClick={toggleMode} className={btn}>
+					{mode === "rich" ? "Source" : "Rich"}
 				</button>
 			</div>
-			<div className="flex-1 overflow-auto">
-				{previewMode ? (
-					<div
-						className="prose prose-zinc dark:prose-invert mx-auto max-w-3xl p-6"
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: rendered from user's own markdown
-						dangerouslySetInnerHTML={{ __html: previewHtml }}
+			<div className="min-h-0 flex-1">
+				{mode === "rich" ? (
+					<EditorView
+						key={filePath}
+						path={filePath}
+						initialMarkdown={initialMarkdown}
+						onLocalChange={handleLocalChange}
+						onSave={writeFile}
+						onOpenExternalLink={openExternalLink}
+						onOpenWikiLink={openWikiLink}
+						onMessage={showMessage}
 					/>
 				) : (
-					<textarea
-						value={content}
-						onChange={handleChange}
-						spellCheck={false}
-						className="h-full w-full resize-none bg-transparent p-6 font-mono text-sm leading-relaxed outline-none"
-						placeholder="Start typing..."
+					<MarkdownSourceEditor
+						key={filePath}
+						path={filePath}
+						initialMarkdown={initialMarkdown}
+						onLocalChange={handleLocalChange}
+						onSave={writeFile}
+						// Tiptap's deferred focus("end") hangs the WKWebView's JS thread
+						// on device once the keyboard comes up; let the user tap in.
+						autoFocus={false}
 					/>
 				)}
 			</div>
+			{message && (
+				<div
+					role="status"
+					className={`pointer-events-none absolute inset-x-4 [inset-block-end:calc(env(safe-area-inset-bottom)+1rem)] rounded-xl px-4 py-2 text-center text-sm shadow-lg ${
+						message.type === "error"
+							? "bg-destructive text-white"
+							: "bg-foreground text-background"
+					}`}
+				>
+					{message.text}
+				</div>
+			)}
 		</div>
 	);
 }

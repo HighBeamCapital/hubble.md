@@ -16,6 +16,8 @@ export type MarkdownSourceEditorProps = {
 	onLocalChange: (path: string, markdown: string) => void;
 	onSave: (path: string, markdown: string) => void | Promise<void>;
 	onScrollContainerChange?: (el: HTMLDivElement | null) => void;
+	/** Focus the end of the document on mount. */
+	autoFocus?: boolean;
 };
 
 export function MarkdownSourceEditor({
@@ -25,6 +27,7 @@ export function MarkdownSourceEditor({
 	onLocalChange,
 	onSave,
 	onScrollContainerChange,
+	autoFocus = true,
 }: MarkdownSourceEditorProps) {
 	const pathRef = useRef(path);
 	const latestMarkdownRef = useRef(initialMarkdown);
@@ -70,9 +73,9 @@ export function MarkdownSourceEditor({
 	});
 
 	useEffect(() => {
-		if (!editor) return;
+		if (!editor || !autoFocus) return;
 		editor.commands.focus("end");
-	}, [editor]);
+	}, [editor, autoFocus]);
 
 	useEffect(() => {
 		if (!editor) return;

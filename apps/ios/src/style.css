@@ -1,2 +1,34 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+@import "tw-animate-css";
+@import "open-props/easings";
+@import "@hubble.md/ui/tailwind.css";
+@import "@hubble.md/ui/style.css";
+@import "@hubble.md/ui/theme.css";
+@import "@hubble.md/ui/fonts.css";
+
+@custom-variant dark (&:is(.dark *));
+
+html,
+body,
+#root {
+	block-size: 100%;
+	margin: 0;
+}
+
+body {
+	font-family:
+		ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	color: var(--foreground);
+	background-color: var(--background);
+	overscroll-behavior: none;
+}
+
+/* Touch editing relies on the native caret for iOS selection handles and the
+ * magnifier loupe, so restore it and hide the desktop virtual cursor. */
+[data-hubble-editor] .ProseMirror {
+	caret-color: var(--brand-accent);
+}
+
+[data-hubble-editor] .editorViewport > span[aria-hidden="true"] {
+	display: none;
+}
