@@ -8,6 +8,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 ## [Unreleased]
 
 ### Added
+- The iOS app now uses the same rich editor as the desktop app, with slash commands, file properties, tables, task lists, and a formatting toolbar. Switch to raw Markdown anytime with the Source button. [#2](https://github.com/HighBeamCapital/hubble.md/pull/2)
 
 ### Changed
 

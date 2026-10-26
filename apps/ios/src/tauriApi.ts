@@ -70,29 +70,6 @@ export const tauriApi = {
 		return invoke<string | null>("get_launch_workspace_path");
 	},
 
-	async openFilePicker(): Promise<string | null> {
-		const { open } = await import("@tauri-apps/plugin-dialog");
-		const result = await open({
-			multiple: false,
-			directory: false,
-			fileAccessMode: "scoped",
-			filters: [{ name: "Markdown", extensions: ["md", "txt"] }],
-		});
-		if (!result) return null;
-		let path: string | null = null;
-		if (Array.isArray(result)) {
-			path = result[0] ?? null;
-		} else if (typeof result === "string") {
-			path = result;
-		} else if ("path" in result && typeof result.path === "string") {
-			path = result.path;
-		}
-		if (path?.startsWith("file://")) {
-			path = decodeURIComponent(path.slice(7));
-		}
-		return path;
-	},
-
 	async pickFile(): Promise<{ path: string } | null> {
 		return invoke<{ path: string } | null>("pick_file");
 	},
