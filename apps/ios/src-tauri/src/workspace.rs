@@ -139,6 +139,13 @@ fn icloud_stub_name(name: &str) -> Option<&str> {
     name.strip_prefix('.')?.strip_suffix(".icloud")
 }
 
+/// Path of the `.<name>.icloud` stub that stands in for `path` while the file is
+/// not downloaded. None when `path` has no file name.
+pub fn icloud_stub_path(path: &Path) -> Option<PathBuf> {
+    let name = path.file_name()?.to_string_lossy();
+    Some(path.with_file_name(format!(".{name}.icloud")))
+}
+
 #[tauri::command]
 pub async fn list_directory(path: String) -> Result<Vec<DirectoryEntry>, String> {
     let mut entries = Vec::new();
@@ -192,4 +199,45 @@ pub async fn find_markdown_file(root: String, file_name: String) -> Option<Strin
         queue.extend(subdirs);
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stub_path_sits_next_to_the_file() {
+        assert_eq!(
+            icloud_stub_path(Path::new("/notes/Plan.md")),
+            Some(PathBuf::from("/notes/.Plan.md.icloud"))
+        );
+    }
+
+    #[test]
+    fn stub_path_handles_names_with_spaces_and_dots() {
+        assert_eq!(
+            icloud_stub_path(Path::new("/notes/v1.2 plan.md")),
+            Some(PathBuf::from("/notes/.v1.2 plan.md.icloud"))
+        );
+    }
+
+    #[test]
+    fn stub_path_has_no_directory_for_a_bare_name() {
+        assert_eq!(
+            icloud_stub_path(Path::new("Plan.md")),
+            Some(PathBuf::from(".Plan.md.icloud"))
+        );
+    }
+
+    #[test]
+    fn stub_path_is_none_without_a_file_name() {
+        assert_eq!(icloud_stub_path(Path::new("/")), None);
+    }
+
+    #[test]
+    fn stub_path_round_trips_through_icloud_stub_name() {
+        let stub = icloud_stub_path(Path::new("/notes/Plan.md")).unwrap();
+        let stub_name = stub.file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(icloud_stub_name(&stub_name), Some("Plan.md"));
+    }
 }

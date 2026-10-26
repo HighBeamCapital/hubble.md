@@ -146,7 +146,9 @@ fn rename_file(from_path: String, to_path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn path_exists(path: String) -> Result<bool, String> {
-    Ok(Path::new(&path).exists())
+    let p = Path::new(&path);
+    // A note that is not downloaded exists on disk only as its iCloud stub.
+    Ok(p.exists() || workspace::icloud_stub_path(p).is_some_and(|stub| stub.exists()))
 }
 
 #[derive(Deserialize)]
@@ -158,6 +160,11 @@ struct DeleteOptions {
 fn delete_file(path: String, options: Option<DeleteOptions>) -> Result<(), String> {
     let p = Path::new(&path);
     if !p.exists() {
+        // Only the iCloud stub is on disk for an undownloaded note. Remove it so
+        // the note does not reappear in the listing.
+        if let Some(stub) = workspace::icloud_stub_path(p).filter(|stub| stub.exists()) {
+            fs::remove_file(&stub).map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
     if p.is_dir() {
