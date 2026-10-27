@@ -7,6 +7,8 @@ use objc::declare::ClassDecl;
 use objc::runtime::{Class, Object, Sel};
 use objc::{class, msg_send, sel, sel_impl};
 
+use crate::workspace::{bookmark_for_url, FolderAccess};
+
 #[repr(C)]
 struct DispatchObject {
     _priv: [u8; 0],
@@ -38,7 +40,7 @@ enum PresentOutcome {
     Failed,
 }
 
-static PICKER_TX: Mutex<Option<mpsc::Sender<Option<String>>>> = Mutex::new(None);
+static PICKER_TX: Mutex<Option<mpsc::Sender<Option<FolderAccess>>>> = Mutex::new(None);
 static DELEGATE_CLASS: OnceLock<Option<&'static Class>> = OnceLock::new();
 struct RawObject(*mut Object);
 unsafe impl Send for RawObject {}
@@ -115,14 +117,18 @@ fn did_pick_documents_inner(controller: *mut Object, urls: *mut Object) {
 
         if count > 0 {
             let url: *mut Object = msg_send![urls, objectAtIndex: 0];
+            // The security scope belongs to this URL instance, so start access
+            // and bookmark it here; a URL rebuilt from the path can't do either.
+            let started: bool = msg_send![url, startAccessingSecurityScopedResource];
             let path: *mut Object = msg_send![url, path];
-            if !path.is_null() {
+            if started && !path.is_null() {
                 let utf8: *const std::os::raw::c_char = msg_send![path, UTF8String];
-                let s = CStr::from_ptr(utf8).to_string_lossy().to_string();
+                let path = CStr::from_ptr(utf8).to_string_lossy().to_string();
+                let picked = bookmark_for_url(url).ok().map(|bookmark| FolderAccess { path, bookmark });
                 cleanup_delegate();
                 dismiss_controller(controller);
                 if let Some(tx) = PICKER_TX.lock().unwrap_or_else(|e| e.into_inner()).take() {
-                    let _ = tx.send(Some(s));
+                    let _ = tx.send(picked);
                 }
                 return;
             }
@@ -225,15 +231,20 @@ fn present_picker_inner() -> PresentOutcome {
             return PresentOutcome::NotReady;
         }
 
-        let nsstring_cls = class!(NSString);
-        let folder_type: *mut Object = msg_send![nsstring_cls, stringWithUTF8String: "public.folder\0".as_ptr()];
-        let document_types: *mut Object = msg_send![class!(NSArray), arrayWithObject: folder_type];
-
         let Some(picker_cls) = Class::get("UIDocumentPickerViewController") else {
             return PresentOutcome::Failed;
         };
+        let Some(ut_type_cls) = Class::get("UTType") else {
+            return PresentOutcome::Failed;
+        };
+        let folder_uti: *mut Object =
+            msg_send![class!(NSString), stringWithUTF8String: "public.folder\0".as_ptr()];
+        let folder_type: *mut Object = msg_send![ut_type_cls, typeWithIdentifier: folder_uti];
+        let content_types: *mut Object = msg_send![class!(NSArray), arrayWithObject: folder_type];
+        // Opens the folder in place. The legacy initWithDocumentTypes:inMode:
+        // initializer with mode 0 imports a copy instead.
         let picker: *mut Object = msg_send![picker_cls, alloc];
-        let picker: *mut Object = msg_send![picker, initWithDocumentTypes: document_types inMode: 0i64];
+        let picker: *mut Object = msg_send![picker, initForOpeningContentTypes: content_types];
 
         let delegate: *mut Object = msg_send![delegate_class, alloc];
         let delegate: *mut Object = msg_send![delegate, init];
@@ -254,7 +265,7 @@ fn try_present_picker() {
 }
 
 #[tauri::command]
-pub async fn pick_folder() -> Result<Option<String>, String> {
+pub async fn pick_folder() -> Result<Option<FolderAccess>, String> {
     let (tx, rx) = mpsc::channel();
     *PICKER_TX.lock().unwrap_or_else(|e| e.into_inner()) = Some(tx);
 
