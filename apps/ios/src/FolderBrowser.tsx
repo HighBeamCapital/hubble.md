@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { rewriteOwnAssetLinks } from "./lib/assetLinks";
 import { displayName, visibleEntries } from "./lib/folder";
 import {
 	basename,
@@ -89,7 +90,9 @@ export function FolderBrowser({
 		}
 		await tauriApi.renameFile(entry.path, path);
 		if (!entry.is_dir && hasMarkdownExtension(entry.path)) {
-			await moveAssetFolder(entry.path, path);
+			if (await moveAssetFolder(entry.path, path)) {
+				await rewriteNoteAssetLinks(entry.path, path);
+			}
 		}
 		setSheet(null);
 		await refresh();
@@ -99,13 +102,21 @@ export function FolderBrowser({
 	const moveAssetFolder = async (fromNote: string, toNote: string) => {
 		const from = markdownAssetFolderPath(fromNote);
 		const to = markdownAssetFolderPath(toNote);
-		if (!from || !to || pathEquals(from, to)) return;
-		if (!(await tauriApi.pathExists(from))) return;
+		if (!from || !to || pathEquals(from, to)) return false;
+		if (!(await tauriApi.pathExists(from))) return false;
 		if (await tauriApi.pathExists(to)) {
 			onMessage(`${basename(to)} already exists; images were not moved`, "error");
-			return;
+			return false;
 		}
 		await tauriApi.renameFile(from, to);
+		return true;
+	};
+
+	// Only the renamed note's own links into its moved assets folder change.
+	const rewriteNoteAssetLinks = async (fromNote: string, toNote: string) => {
+		const content = await tauriApi.readFileText(toNote);
+		const next = rewriteOwnAssetLinks({ content, fromNote, toNote });
+		if (next !== content) await tauriApi.writeFileText(toNote, next);
 	};
 
 	const deleteEntry = async (entry: DirectoryEntry) => {
