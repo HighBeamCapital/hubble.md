@@ -12,23 +12,32 @@ export type ScopedFileApi = {
  * file's scoped access released, so no save can target a released scope. A
  * failed read never calls `commit`, leaves the previous note fully usable,
  * and leaves no scope behind for `path`.
+ *
+ * Reopening the active file only calls `flush`. The editor already holds the
+ * latest content, so a disk read could only be staler and `commit` would reset
+ * the pending edits to it.
  */
 export async function readFileForOpen({
 	path,
 	activePath,
 	folderPath,
 	api,
+	flush,
 	commit,
 }: {
 	path: string;
 	activePath: string | null;
 	folderPath: string | null;
 	api: ScopedFileApi;
+	flush: () => Promise<void> | void;
 	commit: (text: string) => Promise<void> | void;
 }): Promise<void> {
+	if (path === activePath) {
+		await flush();
+		return;
+	}
 	const inFolder = isInFolder(path, folderPath);
-	// Reopening the active file reuses the access it already holds.
-	const needsScope = !inFolder && path !== activePath;
+	const needsScope = !inFolder;
 	if (needsScope) await api.startScopedAccess(path);
 	let text: string;
 	try {
@@ -40,7 +49,6 @@ export async function readFileForOpen({
 	await commit(text);
 	if (
 		activePath &&
-		activePath !== path &&
 		!isInFolder(activePath, folderPath)
 	) {
 		try {

@@ -112,6 +112,7 @@ export function App() {
 					activePath: activePathRef.current,
 					folderPath: folderRef.current,
 					api: tauriApi,
+					flush: flushSave,
 					// Runs once the new file is read and before the old scope is
 					// released. Flushing here saves edits made during the read.
 					commit: async (text) => {

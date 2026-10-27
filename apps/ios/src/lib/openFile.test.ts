@@ -21,6 +21,7 @@ describe("readFileForOpen", () => {
 			activePath: "/root/notes/a.md",
 			folderPath,
 			api,
+			flush: vi.fn(),
 			commit,
 		});
 		expect(commit).toHaveBeenCalledWith("text of /root/notes/b.md");
@@ -44,6 +45,7 @@ describe("readFileForOpen", () => {
 			activePath: "/elsewhere/old.md",
 			folderPath,
 			api,
+			flush: vi.fn(),
 			commit: async () => {
 				order.push("commit");
 			},
@@ -64,6 +66,7 @@ describe("readFileForOpen", () => {
 				activePath: "/elsewhere/old.md",
 				folderPath,
 				api,
+				flush: vi.fn(),
 				commit,
 			}),
 		).rejects.toThrow("boom");
@@ -87,6 +90,7 @@ describe("readFileForOpen", () => {
 				activePath: "/elsewhere/old.md",
 				folderPath,
 				api,
+				flush: vi.fn(),
 				commit,
 			}),
 		).rejects.toThrow("denied");
@@ -94,15 +98,48 @@ describe("readFileForOpen", () => {
 		expect(api.stopScopedAccess).not.toHaveBeenCalled();
 	});
 
+	it("keeps pending edits when reopening the active file", async () => {
+		const path = "/root/notes/a.md";
+		const state = { markdown: "edited", baseline: "disk", disk: "disk" };
+		const api = makeApi({
+			readFileText: vi.fn(async () => state.disk),
+		});
+		const commit = vi.fn(async (text: string) => {
+			state.markdown = text;
+			state.baseline = text;
+		});
+		await readFileForOpen({
+			path,
+			activePath: path,
+			folderPath,
+			api,
+			flush: async () => {
+				state.disk = state.markdown;
+				state.baseline = state.markdown;
+			},
+			commit,
+		});
+		expect(commit).not.toHaveBeenCalled();
+		expect(api.readFileText).not.toHaveBeenCalled();
+		expect(state).toEqual({
+			markdown: "edited",
+			baseline: "edited",
+			disk: "edited",
+		});
+	});
+
 	it("reuses the held access when reopening the active out-of-folder file", async () => {
 		const api = makeApi();
+		const flush = vi.fn();
 		await readFileForOpen({
 			path: "/elsewhere/a.md",
 			activePath: "/elsewhere/a.md",
 			folderPath,
 			api,
+			flush,
 			commit: vi.fn(),
 		});
+		expect(flush).toHaveBeenCalledTimes(1);
 		expect(api.startScopedAccess).not.toHaveBeenCalled();
 		expect(api.stopScopedAccess).not.toHaveBeenCalled();
 	});
